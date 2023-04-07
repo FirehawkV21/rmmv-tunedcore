@@ -7,6 +7,7 @@ An optimized version of the RPG Maker MV core scripts
 - Half tile size is only calculated when when Tilemap is initialized.
 - Simplified a check in TilingSprite.prototype._refresh.
 - Updated to Pixi.js 4.8.9.
+- Fixed Garbage Collection settings for Pixi.js.
 - Replaced the deprecated VoidFilter with AlphaFilter.
 - Replaced calls to RegExp.$1 in the WebAudio._readMetadata.
 - Removed styles.type. It implies text/css anyway.
