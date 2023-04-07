@@ -753,7 +753,7 @@ Bitmap._reuseImages = [];
 
 Bitmap.prototype._createCanvas = function(width, height){
     this.__canvas = this.__canvas || document.createElement('canvas');
-    this.__context = this.__canvas.getContext('2d');
+    this.__context = this.__canvas.getContext('2d', { willReadFrequently: true });
 
     this.__canvas.width = Math.max(width || 0, 1);
     this.__canvas.height = Math.max(height || 0, 1);
@@ -2405,7 +2405,7 @@ Graphics._testCanvasBlendModes = function() {
     canvas = document.createElement('canvas');
     canvas.width = 1;
     canvas.height = 1;
-    context = canvas.getContext('2d');
+    context = canvas.getContext('2d', { willReadFrequently: true });
     context.globalCompositeOperation = 'source-over';
     context.fillStyle = 'white';
     context.fillRect(0, 0, 1, 1);
@@ -4528,7 +4528,7 @@ Tilemap.prototype.initialize = function() {
     this._tileWidth = 48;
     this._tileWidthHalf = this._tileWidth / 2;
     this._tileHeight = 48;
-    this._tileHeightHalf = this._tileHeightHalf / 2;
+    this._tileHeightHalf = this._tileHeight / 2;
     this._mapWidth = 0;
     this._mapHeight = 0;
     this._mapData = null;
