@@ -12,4 +12,4 @@ An optimized version of the RPG Maker MV core scripts
 - Removed or re-worked code that used deprecated features.
  - Removed calls to RegExp.$1 in the WebAudio._readMetadata.
  - Removed styles.type. It implies text/css anyway.
- - Removed a legacy call specific with Safari.
+ - Removed a legacy call specific with Safari (body.style.webkitUserSelect).
