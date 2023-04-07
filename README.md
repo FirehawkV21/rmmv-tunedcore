@@ -4,6 +4,7 @@ An optimized version of the RPG Maker MV core scripts
 # Changes versus the stock core scripts
 - Removed an unnecessary check (`this.texture.frame.width > 0 && this.texture.frame.height > 0`) in Sprite.prototype._renderWebGL/_renderCanvas.
 - Enabled 'willReadFrequently' for canvas (requires nw 0.62.0 or newer).
+- Enabled Low Latency mode for rendering.
 - The calculation for the character speed is pre-calculated (includes a fallback for non-standard speeds).
 - Half tile size is only calculated when when Tilemap is initialized.
 - Simplified a check in TilingSprite.prototype._refresh.

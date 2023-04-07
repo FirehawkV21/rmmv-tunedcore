@@ -753,7 +753,7 @@ Bitmap._reuseImages = [];
 
 Bitmap.prototype._createCanvas = function(width, height){
     this.__canvas = this.__canvas || document.createElement('canvas');
-    this.__context = this.__canvas.getContext('2d', { willReadFrequently: true });
+    this.__context = this.__canvas.getContext('2d', {  willReadFrequently: true, desynchronized: true });
 
     this.__canvas.width = Math.max(width || 0, 1);
     this.__canvas.height = Math.max(height || 0, 1);
@@ -1909,7 +1909,7 @@ Graphics.isWebGL = function() {
 Graphics.hasWebGL = function() {
     try {
         var canvas = document.createElement('canvas');
-        return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+        return !!(canvas.getContext('webgl', { desynchronized: true} ) || canvas.getContext('experimental-webgl', {desynchronized: true}));
     } catch (e) {
         return false;
     }
@@ -2405,7 +2405,7 @@ Graphics._testCanvasBlendModes = function() {
     canvas = document.createElement('canvas');
     canvas.width = 1;
     canvas.height = 1;
-    context = canvas.getContext('2d', { willReadFrequently: true });
+    context = canvas.getContext('2d', { willReadFrequently: true, desynchronized: true });
     context.globalCompositeOperation = 'source-over';
     context.fillStyle = 'white';
     context.fillRect(0, 0, 1, 1);
