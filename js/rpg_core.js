@@ -2073,7 +2073,6 @@ Graphics.loadFont = function(name, url) {
     var style = document.createElement('style');
     var head = document.getElementsByTagName('head');
     var rule = '@font-face { font-family: "' + name + '"; src: url("' + url + '"); }';
-    style.type = 'text/css';
     head.item(0).appendChild(style);
     style.sheet.insertRule(rule, 0);
     this._createFontLoader(name);
@@ -2718,7 +2717,6 @@ Graphics._centerElement = function(element) {
 Graphics._disableTextSelection = function() {
     var body = document.body;
     body.style.userSelect = 'none';
-    body.style.webkitUserSelect = 'none';
     body.style.msUserSelect = 'none';
     body.style.mozUserSelect = 'none';
 };
@@ -8397,11 +8395,13 @@ WebAudio.prototype._readMetaData = function(array, index, size) {
             while (array[i] > 0) {
                 text += String.fromCharCode(array[i++]);
             }
-            if (text.match(/LOOPSTART=([0-9]+)/)) {
-                this._loopStart = parseInt(RegExp.$1);
+            var loopstartmatch = text.match(/LOOPSTART=(\d+)/);
+            var looplengthmatch = text.match(/LOOPLENGTH=(\d+)/);
+            if (loopstartmatch) {
+                this._loopStart = parseInt(loopstartmatch[1]);
             }
-            if (text.match(/LOOPLENGTH=([0-9]+)/)) {
-                this._loopLength = parseInt(RegExp.$1);
+            if (looplengthmatch) {
+                this._loopLength = parseInt(looplengthmatch[1]);
             }
             if (text == 'LOOPSTART' || text == 'LOOPLENGTH') {
                 var text2 = '';
@@ -9220,7 +9220,7 @@ Decrypter.decryptArrayBuffer = function(arrayBuffer) {
     var ref = this.SIGNATURE + this.VER + this.REMAIN;
     var refBytes = new Uint8Array(16);
     for (i = 0; i < this._headerlength; i++) {
-        refBytes[i] = parseInt("0x" + ref.substr(i * 2, 2), 16);
+        refBytes[i] = parseInt("0x" + ref.substring(i * 2, 2), 16);
     }
     for (i = 0; i < this._headerlength; i++) {
         if (header[i] !== refBytes[i]) {
