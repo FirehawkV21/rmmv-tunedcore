@@ -8,6 +8,6 @@ An optimized version of the RPG Maker MV core scripts
 - Simplified a check in TilingSprite.prototype._refresh.
 - Updated to Pixi.js 4.8.9.
 - Replaced the deprecated VoidFilter with AlphaFilter.
-- Removed calls to RegExp.$1 in the WebAudio._readMetadata.
+- Replaced calls to RegExp.$1 in the WebAudio._readMetadata.
 - Removed styles.type. It implies text/css anyway.
 - Removed a legacy call specific with Safari (body.style.webkitUserSelect).
