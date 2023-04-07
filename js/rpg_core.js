@@ -4342,10 +4342,7 @@ Sprite.prototype._renderCanvas = function(renderer) {
     if(this.bitmap && !this.bitmap.isReady()){
         return;
     }
-
-    if (this.texture.frame.width > 0 && this.texture.frame.height > 0) {
         this._renderCanvas_PIXI(renderer);
-    }
 };
 
 /**
@@ -4385,7 +4382,6 @@ Sprite.prototype._renderWebGL = function(renderer) {
     if(this.bitmap && !this.bitmap.isReady()){
         return;
     }
-    if (this.texture.frame.width > 0 && this.texture.frame.height > 0) {
         if (this._bitmap) {
             this._bitmap.checkDirty();
         }
@@ -4404,7 +4400,6 @@ Sprite.prototype._renderWebGL = function(renderer) {
             renderer.setObjectRenderer(renderer.plugins[this.pluginName]);
 			renderer.plugins[this.pluginName].render(this);
         }
-    }
 };
 
 // The important members from Pixi.js
@@ -4533,7 +4528,9 @@ Tilemap.prototype.initialize = function() {
     this._width = Graphics.width + this._margin * 2;
     this._height = Graphics.height + this._margin * 2;
     this._tileWidth = 48;
+    this._tileWidthHalf = this._tileWidth / 2;
     this._tileHeight = 48;
+    this._tileHeightHalf = this._tileHeightHalf / 2;
     this._mapWidth = 0;
     this._mapHeight = 0;
     this._mapData = null;
@@ -5098,8 +5095,8 @@ Tilemap.prototype._drawAutotile = function(bitmap, tileId, dx, dy) {
     var source = this.bitmaps[setNumber];
 
     if (table && source) {
-        var w1 = this._tileWidth / 2;
-        var h1 = this._tileHeight / 2;
+        var w1 = this._tileWidthHalf;
+        var h1 = this._tileHeightHalf;
         for (var i = 0; i < 4; i++) {
             var qsx = table[i][0];
             var qsy = table[i][1];
@@ -5147,8 +5144,8 @@ Tilemap.prototype._drawTableEdge = function(bitmap, tileId, dx, dy) {
 
         if (table) {
             var source = this.bitmaps[setNumber];
-            var w1 = this._tileWidth / 2;
-            var h1 = this._tileHeight / 2;
+            var w1 = this._tileWidthHalf;
+            var h1 = this._tileHeightHalf;
             for (var i = 0; i < 2; i++) {
                 var qsx = table[2 + i][0];
                 var qsy = table[2 + i][1];
@@ -5172,8 +5169,8 @@ Tilemap.prototype._drawTableEdge = function(bitmap, tileId, dx, dy) {
  */
 Tilemap.prototype._drawShadow = function(bitmap, shadowBits, dx, dy) {
     if (shadowBits & 0x0f) {
-        var w1 = this._tileWidth / 2;
-        var h1 = this._tileHeight / 2;
+        var w1 = this._tileWidthHalf;
+        var h1 = this._tileHeightHalf;
         var color = 'rgba(0,0,0,0.5)';
         for (var i = 0; i < 4; i++) {
             if (shadowBits & (1 << i)) {
@@ -5816,8 +5813,8 @@ ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
     }
 
     var table = autotileTable[shape];
-    var w1 = this._tileWidth / 2;
-    var h1 = this._tileHeight / 2;
+    var w1 = this._tileWidthHalf;
+    var h1 = this._tileHeightHalf;
     for (var i = 0; i < 4; i++) {
         var qsx = table[i][0];
         var qsy = table[i][1];
@@ -5861,8 +5858,8 @@ ShaderTilemap.prototype._drawTableEdge = function(layer, tileId, dx, dy) {
         var bx = tx * 2;
         var by = (ty - 2) * 3;
         var table = autotileTable[shape];
-        var w1 = this._tileWidth / 2;
-        var h1 = this._tileHeight / 2;
+        var w1 = this._tileWidthHalf;
+        var h1 = this._tileHeightHalf;
         for (var i = 0; i < 2; i++) {
             var qsx = table[2 + i][0];
             var qsy = table[2 + i][1];
@@ -5884,8 +5881,8 @@ ShaderTilemap.prototype._drawTableEdge = function(layer, tileId, dx, dy) {
  */
 ShaderTilemap.prototype._drawShadow = function(layer, shadowBits, dx, dy) {
     if (shadowBits & 0x0f) {
-        var w1 = this._tileWidth / 2;
-        var h1 = this._tileHeight / 2;
+        var w1 = this._tileWidthHalf;
+        var h1 = this._tileHeightHalf;
         for (var i = 0; i < 4; i++) {
             if (shadowBits & (1 << i)) {
                 var dx1 = dx + (i % 2) * w1;
@@ -6077,7 +6074,7 @@ TilingSprite.prototype._onBitmapLoad = function() {
  */
 TilingSprite.prototype._refresh = function() {
     var frame = this._frame.clone();
-    if (frame.width === 0 && frame.height === 0 && this._bitmap) {
+    if (frame.width === 0 && this._bitmap) {
         frame.width = this._bitmap.width;
         frame.height = this._bitmap.height;
     }
