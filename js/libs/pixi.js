@@ -16276,6 +16276,7 @@ var SystemRenderer = function (_EventEmitter) {
      * @member {boolean}
      */
     _this.preserveDrawingBuffer = options.preserveDrawingBuffer;
+      _this.desynchronised = options.desynchronised;
 
     /**
      * This sets if the CanvasRenderer will clear the canvas or not before the new render pass.
@@ -21191,6 +21192,7 @@ exports.default = {
     transparent: false,
     backgroundColor: 0x000000,
     clearBeforeRender: true,
+    desynchronised: true,
     preserveDrawingBuffer: false,
     roundPixels: false,
     width: 800,
