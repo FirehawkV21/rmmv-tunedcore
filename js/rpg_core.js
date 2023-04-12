@@ -1909,7 +1909,7 @@ Graphics.isWebGL = function() {
 Graphics.hasWebGL = function() {
     try {
         var canvas = document.createElement('canvas');
-        return !!(canvas.getContext('webgl', { desynchronized: true} ) || canvas.getContext('experimental-webgl', {desynchronized: true}));
+        return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
     } catch (e) {
         return false;
     }
@@ -2073,6 +2073,7 @@ Graphics.loadFont = function(name, url) {
     var style = document.createElement('style');
     var head = document.getElementsByTagName('head');
     var rule = '@font-face { font-family: "' + name + '"; src: url("' + url + '"); }';
+    style.type = 'text/css';
     head.item(0).appendChild(style);
     style.sheet.insertRule(rule, 0);
     this._createFontLoader(name);
@@ -2717,6 +2718,7 @@ Graphics._centerElement = function(element) {
 Graphics._disableTextSelection = function() {
     var body = document.body;
     body.style.userSelect = 'none';
+    body.style.webkitUserSelect = 'none';
     body.style.msUserSelect = 'none';
     body.style.mozUserSelect = 'none';
 };
@@ -9220,7 +9222,7 @@ Decrypter.decryptArrayBuffer = function(arrayBuffer) {
     var ref = this.SIGNATURE + this.VER + this.REMAIN;
     var refBytes = new Uint8Array(16);
     for (i = 0; i < this._headerlength; i++) {
-        refBytes[i] = parseInt("0x" + ref.substring(i * 2, 2), 16);
+        refBytes[i] = parseInt("0x" + ref.substr(i * 2, 2), 16);
     }
     for (i = 0; i < this._headerlength; i++) {
         if (header[i] !== refBytes[i]) {
