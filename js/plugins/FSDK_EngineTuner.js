@@ -25,7 +25,7 @@
 * @parent visuals
 * @text Remove check for video onTouchEnd.
 * @desc Removes a check that happens onTouchEnd for video. Enable this if you don't want to use video.
-* @type bool
+* @type boolean
 * @default false
 * @on Don't Check
 * @off Check
@@ -34,7 +34,7 @@
 * @parent visuals
 * @text Remove Background Blur
 * @desc Remove the blur from the menus. This may remove some of the lag when they open.
-* @type bool
+* @type boolean
 * @default false
 * @on Remove
 * @off Keep
@@ -44,6 +44,7 @@
 * 
 * @param dontInitFollowers
 * @parent gameplay
+* @type boolean 
 * @text Don't initialize followers.
 * @desc If you aren't using followers, turn this on to prevent initialization.
 * @default false
