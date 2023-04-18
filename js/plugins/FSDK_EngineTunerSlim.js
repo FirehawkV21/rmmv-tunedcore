@@ -1,5 +1,5 @@
 /*:
-* @plugindesc Provides fixes in features that may be less utilized.
+* @plugindesc R1.00||Provides fixes in features that may be less utilized.
 * @author AceOfAces
 * 
 * @param engine
@@ -51,6 +51,38 @@
 * @on Don't
 * @off Do
 * 
+* @help
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Engine Tuner (Slim version)
+* Developed by AceOfAces
+* Licensed under the MIT license. Can be used for both Non-commercial and
+* commercial games.
+* Please credit me as AceOfAces when you use this plugin.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* This plugin provides access to tweaks for those who who used the tuned or
+* a custom version of the RPG Maker MV Core scripts.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Installation
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Put this plugin above every plugin in the plugin manager (except the Sentry
+*   integration plugin). After turning it on, adjust the
+* settings depending on your needs.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Engine Tweaks
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Rendering Mode: This forces the game to use a specific renderer. Use this if
+* you need to force a specific renderer.
+* Remove check for video onTouchEnd: During interaction with touch and/or
+* mouse, an event is raised where the engine checks if the video is
+* visible, locked or paused. If it is, it will play the video. You
+* can enable this to remove this check. It is reccomended for those who
+* don't use videos in game.
+* Remove Background Blur: When the menu is created, it will blur the
+* background. You can enable this to remove the blur, which can
+* make the menu less laggy.
+* Don't initialize followers: If you aren't using followers in game,
+* you can enable this to remove the initialization code.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
 var FirehawkADK = FirehawkADK || {};
