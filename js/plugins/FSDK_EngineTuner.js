@@ -1,5 +1,5 @@
 /*:
-* @plugindesc Provides fixes in features that may be less utilized.
+* @plugindesc R1.00||Provides fixes in features that may be less utilized.
 * @author AceOfAces
 * 
 * @param engine
@@ -45,12 +45,51 @@
 * @param dontInitFollowers
 * @parent gameplay
 * @type boolean 
-* @text Don't initialize followers.
+* @text Don't initialize followers
 * @desc If you aren't using followers, turn this on to prevent initialization.
 * @default false
 * @on Don't
 * @off Do
 * 
+* @help
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Engine Tuner
+* Developed by AceOfAces
+* Licensed under the MIT license. Can be used for both Non-commercial and
+* commercial games.
+* Please credit me as AceOfAces when you use this plugin.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* This plugin implements performance improvements to the engine, alongside
+* adding additional tuning options.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Installation
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Put this plugin above every plugin in the plugin manager (except the Sentry
+*   integration plugin). After turning it on, adjust the
+* settings depending on your needs.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Engine Tweaks
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Rendering Mode: This forces the game to use a specific renderer. Use this if
+* you need to force a specific renderer.
+* Remove check for video onTouchEnd: During interaction with touch and/or
+* mouse, an event is raised where the engine checks if the video is
+* visible, locked or paused. If it is, it will play the video. You
+* can enable this to remove this check. It is reccomended for those who
+* don't use videos in game.
+* Remove Background Blur: When the menu is created, it will blur the
+* background. You can enable this to remove the blur, which can
+* make the menu less laggy.
+* Don't initialize followers: If you aren't using followers in game,
+* you can enable this to remove the initialization code.
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* Engine Changes
+* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+* - Removed unnecessary checks in Sprite._renderCnavas/_renderWebGL
+* - Simplified a check in TilingSprite.prototype._refresh.
+* - Replaced the deprecated VoidFilter with AlphaFilter.
+* - Half tile size is only calculated when when Tilemap is initialized.
+* - Replaced calls to RegExp.$1 in the WebAudio._readMetadata.
 */
 
 var FirehawkADK = FirehawkADK || {};
@@ -85,6 +124,33 @@ Sprite.prototype._renderCanvas = function(renderer) {
         return;
     }
         this._renderCanvas_PIXI(renderer);
+};
+
+Sprite.prototype._renderWebGL = function(renderer) {
+    if (this.bitmap) {
+        this.bitmap.touch();
+    }
+    if(this.bitmap && !this.bitmap.isReady()){
+        return;
+    }
+        if (this._bitmap) {
+            this._bitmap.checkDirty();
+        }
+
+        //copy of pixi-v4 internal code
+        this.calculateVertices();
+
+        if (this.pluginName === 'sprite' && this._isPicture) {
+            // use heavy renderer, which reduces artifacts and applies corrent blendMode,
+            // but does not use multitexture optimization
+            this._speedUpCustomBlendModes(renderer);
+            renderer.setObjectRenderer(renderer.plugins.picture);
+            renderer.plugins.picture.render(this);
+        } else {
+            // use pixi super-speed renderer
+            renderer.setObjectRenderer(renderer.plugins[this.pluginName]);
+			renderer.plugins[this.pluginName].render(this);
+        }
 };
 
 Tilemap.prototype.initialize = function() {
