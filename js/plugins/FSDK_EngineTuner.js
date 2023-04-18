@@ -90,6 +90,7 @@
 * - Replaced the deprecated VoidFilter with AlphaFilter.
 * - Half tile size is only calculated when when Tilemap is initialized.
 * - Replaced calls to RegExp.$1 in the WebAudio._readMetadata.
+* - Re-worked parts of the decryption to improve compatibility.
 */
 
 var FirehawkADK = FirehawkADK || {};
@@ -222,7 +223,7 @@ Tilemap.prototype.initialize = function() {
     this.refresh();
 };
 
-Tilemap.prototype._drawAutotile = function(bitmap, tileId, dx, dy) {
+Tilemap.prototype._drawAutotile = function (bitmap, tileId, dx, dy) {
     var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
     var kind = Tilemap.getAutotileKind(tileId);
     var shape = Tilemap.getAutotileShape(tileId);
@@ -296,13 +297,13 @@ Tilemap.prototype._drawAutotile = function(bitmap, tileId, dx, dy) {
                 var qsx2 = qsx;
                 var qsy2 = 3;
                 if (qsy === 1) {
-                    qsx2 = [0,3,2,1][qsx];
+                    qsx2 = [0, 3, 2, 1][qsx];
                 }
                 var sx2 = (bx * 2 + qsx2) * w1;
                 var sy2 = (by * 2 + qsy2) * h1;
                 bitmap.bltImage(source, sx2, sy2, w1, h1, dx1, dy1, w1, h1);
-                dy1 += h1/2;
-                bitmap.bltImage(source, sx1, sy1, w1, h1/2, dx1, dy1, w1, h1/2);
+                dy1 += h1 / 2;
+                bitmap.bltImage(source, sx1, sy1, w1, h1 / 2, dx1, dy1, w1, h1 / 2);
             } else {
                 bitmap.bltImage(source, sx1, sy1, w1, h1, dx1, dy1, w1, h1);
             }
@@ -310,7 +311,7 @@ Tilemap.prototype._drawAutotile = function(bitmap, tileId, dx, dy) {
     }
 };
 
-Tilemap.prototype._drawTableEdge = function(bitmap, tileId, dx, dy) {
+Tilemap.prototype._drawTableEdge = function (bitmap, tileId, dx, dy) {
     if (Tilemap.isTileA2(tileId)) {
         var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
         var kind = Tilemap.getAutotileKind(tileId);
@@ -330,16 +331,16 @@ Tilemap.prototype._drawTableEdge = function(bitmap, tileId, dx, dy) {
                 var qsx = table[2 + i][0];
                 var qsy = table[2 + i][1];
                 var sx1 = (bx * 2 + qsx) * w1;
-                var sy1 = (by * 2 + qsy) * h1 + h1/2;
+                var sy1 = (by * 2 + qsy) * h1 + h1 / 2;
                 var dx1 = dx + (i % 2) * w1;
                 var dy1 = dy + Math.floor(i / 2) * h1;
-                bitmap.bltImage(source, sx1, sy1, w1, h1/2, dx1, dy1, w1, h1/2);
+                bitmap.bltImage(source, sx1, sy1, w1, h1 / 2, dx1, dy1, w1, h1 / 2);
             }
         }
     }
 };
 
-Tilemap.prototype._drawShadow = function(bitmap, shadowBits, dx, dy) {
+Tilemap.prototype._drawShadow = function (bitmap, shadowBits, dx, dy) {
     if (shadowBits & 0x0f) {
         var w1 = this._tileWidthHalf;
         var h1 = this._tileHeightHalf;
@@ -354,7 +355,7 @@ Tilemap.prototype._drawShadow = function(bitmap, shadowBits, dx, dy) {
     }
 };
 
-ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
+ShaderTilemap.prototype._drawAutotile = function (layer, tileId, dx, dy) {
     var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
     var kind = Tilemap.getAutotileKind(tileId);
     var shape = Tilemap.getAutotileShape(tileId);
@@ -426,14 +427,39 @@ ShaderTilemap.prototype._drawAutotile = function(layer, tileId, dx, dy) {
             var qsy2 = 3;
             if (qsy === 1) {
                 //qsx2 = [0, 3, 2, 1][qsx];
-                qsx2 = (4-qsx)%4;
+                qsx2 = (4 - qsx) % 4;
             }
             var sx2 = (bx * 2 + qsx2) * w1;
             var sy2 = (by * 2 + qsy2) * h1;
             layer.addRect(setNumber, sx2, sy2, dx1, dy1, w1, h1, animX, animY);
-            layer.addRect(setNumber, sx1, sy1, dx1, dy1+h1/2, w1, h1/2, animX, animY);
+            layer.addRect(setNumber, sx1, sy1, dx1, dy1 + h1 / 2, w1, h1 / 2, animX, animY);
         } else {
             layer.addRect(setNumber, sx1, sy1, dx1, dy1, w1, h1, animX, animY);
+        }
+    }
+};
+
+ShaderTilemap.prototype._drawTableEdge = function (layer, tileId, dx, dy) {
+    if (Tilemap.isTileA2(tileId)) {
+        var autotileTable = Tilemap.FLOOR_AUTOTILE_TABLE;
+        var kind = Tilemap.getAutotileKind(tileId);
+        var shape = Tilemap.getAutotileShape(tileId);
+        var tx = kind % 8;
+        var ty = Math.floor(kind / 8);
+        var setNumber = 1;
+        var bx = tx * 2;
+        var by = (ty - 2) * 3;
+        var table = autotileTable[shape];
+        var w1 = this._tileWidthHalf;
+        var h1 = this._tileHeightHalf;
+        for (var i = 0; i < 2; i++) {
+            var qsx = table[2 + i][0];
+            var qsy = table[2 + i][1];
+            var sx1 = (bx * 2 + qsx) * w1;
+            var sy1 = (by * 2 + qsy) * h1 + h1 / 2;
+            var dx1 = dx + (i % 2) * w1;
+            var dy1 = dy + Math.floor(i / 2) * h1;
+            layer.addRect(setNumber, sx1, sy1, dx1, dy1, w1, h1 / 2);
         }
     }
 };
@@ -480,6 +506,67 @@ Game_CharacterBase.prototype.distancePerFrame = function() {
         default:
             return Math.pow(2, this.realMoveSpeed()) / 256;
     }
+};
+
+WebAudio.prototype._readMetaData = function (array, index, size) {
+    for (var i = index; i < index + size - 10; i++) {
+        if (this._readFourCharacters(array, i) === 'LOOP') {
+            var text = '';
+            while (array[i] > 0) {
+                text += String.fromCharCode(array[i++]);
+            }
+            var loopstartmatch = text.match(/LOOPSTART=(\d+)/);
+            var looplengthmatch = text.match(/LOOPLENGTH=(\d+)/);
+            if (loopstartmatch) {
+                this._loopStart = parseInt(loopstartmatch[1]);
+            }
+            if (looplengthmatch) {
+                this._loopLength = parseInt(looplengthmatch[1]);
+            }
+            if (text == 'LOOPSTART' || text == 'LOOPLENGTH') {
+                var text2 = '';
+                i += 16;
+                while (array[i] > 0) {
+                    text2 += String.fromCharCode(array[i++]);
+                }
+                if (text == 'LOOPSTART') {
+                    this._loopStart = parseInt(text2);
+                } else {
+                    this._loopLength = parseInt(text2);
+                }
+            }
+        }
+    }
+};
+
+Decrypter.decryptArrayBuffer = function (arrayBuffer) {
+    if (!arrayBuffer) return null;
+    var header = new Uint8Array(arrayBuffer, 0, this._headerlength);
+    var i;
+    var ref = this.SIGNATURE + this.VER + this.REMAIN;
+    var refBytes = new Uint8Array(16);
+    for (i = 0; i < this._headerlength; i++) {
+        refBytes[i] = parseInt("0x" + ref.substring(i * 2, (i + 1) * 2), 16);
+    }
+    for (i = 0; i < this._headerlength; i++) {
+        if (header[i] !== refBytes[i]) {
+            throw new Error("Header is wrong");
+        }
+    }
+
+    arrayBuffer = this.cutArrayHeader(arrayBuffer, Decrypter._headerlength);
+    var view = new DataView(arrayBuffer);
+    this.readEncryptionkey();
+
+    if (arrayBuffer) {
+        var byteArray = new Uint8Array(arrayBuffer);
+        for (i = 0; i < this._headerlength; i++) {
+            byteArray[i] = byteArray[i] ^ parseInt(Decrypter._encryptionKey[i], 16);
+            view.setUint8(i, byteArray[i]);
+        }
+    }
+
+    return arrayBuffer;
 };
 
 Game_Followers.prototype.initialize = function() {
