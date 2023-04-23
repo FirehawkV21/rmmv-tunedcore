@@ -756,11 +756,7 @@ StorageManager.localFileDirectoryPath = function() {
     var path = require('path');
 
     var base = path.dirname(process.main.filename);
-    if (this.canMakeWwwSaveDirectory()) {
-        return path.join(base, 'save/');
-    } else {
-        return path.join(path.dirname(base), 'save/');
-    }
+    return path.join(base, 'save/');
 };
 
 StorageManager.localFilePath = function(savefileId) {
@@ -773,24 +769,6 @@ StorageManager.localFilePath = function(savefileId) {
         name = 'file%1.rpgsave'.format(savefileId);
     }
     return this.localFileDirectoryPath() + name;
-};
-
-// Enigma Virtual Box cannot make www/save directory
-StorageManager.canMakeWwwSaveDirectory = function() {
-    if (this._canMakeWwwSaveDirectory === undefined) {
-        var fs = require('fs');
-        var path = require('path');
-        var base = path.dirname(process.mainModule.filename);
-        var testPath = path.join(base, 'testDirectory/');
-        try {
-            fs.mkdirSync(testPath);
-            fs.rmdirSync(testPath);
-            this._canMakeWwwSaveDirectory = true;
-        } catch (e) {
-            this._canMakeWwwSaveDirectory = false;
-        }
-    }
-    return this._canMakeWwwSaveDirectory;
 };
 
 StorageManager.webStorageKey = function(savefileId) {
@@ -2418,7 +2396,7 @@ BattleManager.selectNextCommand = function() {
 
 BattleManager.selectPreviousCommand = function() {
     do {
-        var actor =this.actor();
+        var actor = this.actor();
         if (!actor || !actor.selectPreviousCommand()) {
             this.changeActor(this._actorIndex - 1, 'undecided');
             if (this._actorIndex < 0) {

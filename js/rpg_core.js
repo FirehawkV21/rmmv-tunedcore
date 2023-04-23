@@ -2932,9 +2932,9 @@ Graphics._switchStretchMode = function () {
  */
 Graphics._switchFullScreen = function () {
     if (this._isFullScreen()) {
-        this._requestFullScreen();
-    } else {
         this._cancelFullScreen();
+    } else {
+        this._requestFullScreen();
     }
 };
 
