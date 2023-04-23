@@ -1674,8 +1674,6 @@ Bitmap.prototype._requestImage = function (url) {
     if (this._decodeAfterRequest && !this._loader) {
         this._loader = ResourceHandler.createLoader(url, this._requestImage.bind(this, url), this._onError.bind(this));
     }
-
-    this._image = new Image();
     this._url = url;
     this._loadingState = 'requesting';
 
@@ -1869,7 +1867,7 @@ Graphics.tickEnd = function () {
  * @param {Stage} stage The stage object to be rendered
  */
 Graphics.render = function (stage) {
-    if (this._skipCount === 0) {
+    if (this._skipCount <= 0) {
         var startTime = Date.now();
         if (stage) {
             this._renderer.render(stage);
@@ -5941,23 +5939,6 @@ TilingSprite.prototype._renderCanvas = function (renderer) {
     }
     if (this.texture.frame.width > 0 && this.texture.frame.height > 0) {
         this._renderCanvas_PIXI(renderer);
-    }
-};
-
-/**
- * @method _renderWebGL
- * @param {Object} renderer
- * @private
- */
-TilingSprite.prototype._renderWebGL = function (renderer) {
-    if (this._bitmap) {
-        this._bitmap.touch();
-    }
-    if (this.texture.frame.width > 0 && this.texture.frame.height > 0) {
-        if (this._bitmap) {
-            this._bitmap.checkDirty();
-        }
-        this._renderWebGL_PIXI(renderer);
     }
 };
 
