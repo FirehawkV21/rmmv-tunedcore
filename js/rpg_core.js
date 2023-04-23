@@ -1328,12 +1328,31 @@ Bitmap.prototype.drawCircle = function (x, y, radius, color) {
  * @param {Number} lineHeight The height of the text line
  * @param {String} align The alignment of the text
  */
-Bitmap.prototype.drawText = function (text, x, y, maxWidth, lineHeight, align) {
+Bitmap.prototype.drawText = function(text, x, y, maxWidth, lineHeight, align) {
     // Note: Firefox has a bug with textBaseline: Bug 737852
     //       So we use 'alphabetic' here.
     if (text !== undefined) {
+        var minFontSize = Bitmap.minFontSize = Bitmap.minFontSize || 21;
+        if (this.fontSize < minFontSize) {
+            var bitmap = Bitmap.drawSmallTextBitmap = Bitmap.drawSmallTextBitmap || new Bitmap(1632, Bitmap.minFontSize);
+            bitmap.fontFace = this.fontFace;
+            bitmap.fontSize = minFontSize;
+            bitmap.fontItalic = this.fontItalic;
+            bitmap.textColor = this.textColor;
+            bitmap.outlineColor = this.outlineColor;
+            bitmap.outlineWidth = this.outlineWidth * minFontSize / this.fontSize;
+            maxWidth = maxWidth || 816;
+            var scaledMaxWidth = maxWidth * minFontSize / this.fontSize;
+            if (scaledMaxWidth > bitmap.width) {
+                bitmap.width *= 2;
+            }
+            bitmap.drawText(text, 0, 0, scaledMaxWidth, minFontSize, align);
+            this.blt(bitmap, 0, 0, scaledMaxWidth, minFontSize, x, y + (lineHeight - this.fontSize) / 2, maxWidth, this.fontSize);
+            bitmap.clear();
+            return;
+        }
         var tx = x;
-        var ty = y + lineHeight - (lineHeight - this.fontSize * 0.7) / 2;
+        var ty = y + lineHeight - Math.round((lineHeight - this.fontSize * 0.7) / 2);
         var context = this._context;
         var alpha = context.globalAlpha;
         maxWidth = maxWidth || 0xffffffff;
@@ -1715,7 +1734,7 @@ function Graphics() {
     throw new Error('This is a static class');
 }
 
-Graphics._cssFontLoading = document.fonts && document.fonts.ready;
+Graphics._cssFontLoading = document.fonts && document.fonts.ready && document.fonts.ready.then;
 Graphics._fontLoaded = null;
 Graphics._videoVolume = 1;
 
@@ -4272,43 +4291,44 @@ Sprite.prototype._createTinter = function (w, h) {
  * @param {Number} h
  * @private
  */
-Sprite.prototype._executeTint = function (x, y, w, h) {
+Sprite.prototype._executeTint = function(x, y, w, h) {
     var context = this._context;
     var tone = this._colorTone;
     var color = this._blendColor;
-
     context.globalCompositeOperation = 'copy';
     context.drawImage(this._bitmap.canvas, x, y, w, h, 0, 0, w, h);
 
-    if (Graphics.canUseSaturationBlend()) {
-        var gray = Math.max(0, tone[3]);
-        context.globalCompositeOperation = 'saturation';
-        context.fillStyle = 'rgba(255,255,255,' + gray / 255 + ')';
-        context.fillRect(0, 0, w, h);
-    }
+    if (tone[0] || tone[1] || tone[2] || tone[3]) {
+        if (Graphics.canUseDifferenceBlend()) {
+            var gray = Math.max(0, tone[3]);
+            context.globalCompositeOperation = 'saturation';
+            context.fillStyle = 'rgba(255,255,255,' + gray / 255 + ')';
+            context.fillRect(0, 0, w, h);
+        }
 
-    var r1 = Math.max(0, tone[0]);
-    var g1 = Math.max(0, tone[1]);
-    var b1 = Math.max(0, tone[2]);
-    context.globalCompositeOperation = 'lighter';
-    context.fillStyle = Utils.rgbToCssColor(r1, g1, b1);
-    context.fillRect(0, 0, w, h);
-
-    if (Graphics.canUseDifferenceBlend()) {
-        context.globalCompositeOperation = 'difference';
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, w, h);
-
-        var r2 = Math.max(0, -tone[0]);
-        var g2 = Math.max(0, -tone[1]);
-        var b2 = Math.max(0, -tone[2]);
+        var r1 = Math.max(0, tone[0]);
+        var g1 = Math.max(0, tone[1]);
+        var b1 = Math.max(0, tone[2]);
         context.globalCompositeOperation = 'lighter';
-        context.fillStyle = Utils.rgbToCssColor(r2, g2, b2);
+        context.fillStyle = Utils.rgbToCssColor(r1, g1, b1);
         context.fillRect(0, 0, w, h);
 
-        context.globalCompositeOperation = 'difference';
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, w, h);
+        if (Graphics.canUseDifferenceBlend()) {
+            context.globalCompositeOperation = 'difference';
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, w, h);
+
+            var r2 = Math.max(0, -tone[0]);
+            var g2 = Math.max(0, -tone[1]);
+            var b2 = Math.max(0, -tone[2]);
+            context.globalCompositeOperation = 'lighter';
+            context.fillStyle = Utils.rgbToCssColor(r2, g2, b2);
+            context.fillRect(0, 0, w, h);
+
+            context.globalCompositeOperation = 'difference';
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, w, h);
+        }
     }
 
     var r3 = Math.max(0, color[0]);
@@ -4319,7 +4339,6 @@ Sprite.prototype._executeTint = function (x, y, w, h) {
     context.fillStyle = Utils.rgbToCssColor(r3, g3, b3);
     context.globalAlpha = a3 / 255;
     context.fillRect(0, 0, w, h);
-
     context.globalCompositeOperation = 'destination-in';
     context.globalAlpha = 1;
     context.drawImage(this._bitmap.canvas, x, y, w, h, 0, 0, w, h);
@@ -7786,11 +7805,11 @@ WebAudio._createMasterGainNode = function () {
  * @method _setupEventHandlers
  * @private
  */
-WebAudio._setupEventHandlers = function () {
-    var resumeHandler = function () {
+WebAudio._setupEventHandlers = function() {
+    var resumeHandler = function() {
         var context = WebAudio._context;
         if (context && context.state === "suspended" && typeof context.resume === "function") {
-            context.resume().then(function () {
+            context.resume().then(function() {
                 WebAudio._onTouchStart();
             })
         } else {
@@ -8303,7 +8322,7 @@ WebAudio.prototype._readLoopComments = function (array) {
  * @param {Uint8Array} array
  * @private
  */
-WebAudio.prototype._readOgg = function (array) {
+WebAudio.prototype._readOgg = function(array) {
     var index = 0;
     while (index < array.length) {
         if (this._readFourCharacters(array, index) === 'OggS') {
@@ -8320,7 +8339,14 @@ WebAudio.prototype._readOgg = function (array) {
                     if (headerType === 1) {
                         this._sampleRate = this._readLittleEndian(array, index + 12);
                     } else if (headerType === 3) {
-                        this._readMetaData(array, index, segments[i]);
+                        var size = 0;
+                        for (; i < numSegments; i++) {
+                            size += segments[i];
+                            if (segments[i] < 255) {
+                                break;
+                            }
+                        }
+                        this._readMetaData(array, index, size);
                     }
                     vorbisHeaderFound = true;
                 }
