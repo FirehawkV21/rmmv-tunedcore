@@ -3720,17 +3720,18 @@ Object.defineProperty(TouchInput, 'date', {
  * @method _setupEventHandlers
  * @private
  */
-TouchInput._setupEventHandlers = function () {
+TouchInput._setupEventHandlers = function() {
     var isSupportPassive = Utils.isSupportPassiveEvent();
     document.addEventListener('mousedown', this._onMouseDown.bind(this));
     document.addEventListener('mousemove', this._onMouseMove.bind(this));
     document.addEventListener('mouseup', this._onMouseUp.bind(this));
     document.addEventListener('wheel', this._onWheel.bind(this));
-    document.addEventListener('touchstart', this._onTouchStart.bind(this), isSupportPassive ? { passive: false } : false);
-    document.addEventListener('touchmove', this._onTouchMove.bind(this), isSupportPassive ? { passive: false } : false);
+    document.addEventListener('touchstart', this._onTouchStart.bind(this), isSupportPassive ? {passive: false} : false);
+    document.addEventListener('touchmove', this._onTouchMove.bind(this), isSupportPassive ? {passive: false} : false);
     document.addEventListener('touchend', this._onTouchEnd.bind(this));
     document.addEventListener('touchcancel', this._onTouchCancel.bind(this));
     document.addEventListener('pointerdown', this._onPointerDown.bind(this));
+    window.addEventListener('blur', this._onLostFocus.bind(this));
 };
 
 /**
@@ -3913,6 +3914,15 @@ TouchInput._onPointerDown = function (event) {
             event.preventDefault();
         }
     }
+};
+
+/**
+ * @static
+ * @method _onLostFocus
+ * @private
+ */
+TouchInput._onLostFocus = function() {
+    this.clear();
 };
 
 /**
@@ -7178,7 +7188,7 @@ WindowLayer.prototype._maskWindow = function (window, shift) {
     this._windowMask.boundsDirty = true;
     var rect = this._windowRect;
     rect.x = this.x + shift.x + window.x;
-    rect.y = this.x + shift.y + window.y + window.height / 2 * (1 - window._openness / 255);
+    rect.y = this.y + shift.y + window.y + window.height / 2 * (1 - window._openness / 255);
     rect.width = window.width;
     rect.height = window.height * window._openness / 255;
 };
