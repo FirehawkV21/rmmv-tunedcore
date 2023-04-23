@@ -1994,7 +1994,7 @@ Graphics.printLoadingError = function (url) {
         button.style.fontSize = '24px';
         button.style.color = '#ffffff';
         button.style.backgroundColor = '#000000';
-        button.onmousedown = button.ontouchstart = function (event) {
+        button.onmousedown = button.ontouchstart = function(event) {
             ResourceHandler.retry();
             event.stopPropagation();
         };
@@ -2909,9 +2909,10 @@ Graphics._switchFullScreen = function () {
  * @private
  */
 Graphics._isFullScreen = function () {
-    return ((document.fullScreenElement && document.fullScreenElement !== null) ||
-        (!document.mozFullScreen && !document.webkitFullscreenElement &&
-            !document.msFullscreenElement));
+    return document.fullscreenElement ||
+           document.mozFullScreen || 
+           document.webkitFullscreenElement ||
+           document.msFullscreenElement;
 };
 
 /**
@@ -2938,8 +2939,8 @@ Graphics._requestFullScreen = function () {
  * @private
  */
 Graphics._cancelFullScreen = function () {
-    if (document.cancelFullScreen) {
-        document.cancelFullScreen();
+    if (document.exitFullscreen) { 
+        document.exitFullscreen();
     } else if (document.mozCancelFullScreen) {
         document.mozCancelFullScreen();
     } else if (document.webkitCancelFullScreen) {
