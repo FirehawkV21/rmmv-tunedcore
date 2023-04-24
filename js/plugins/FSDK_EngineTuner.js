@@ -990,3 +990,25 @@ Window_Options.prototype.drawItem = function(index) {
     this.drawText(this.commandName(index), rect.x, rect.y, titleWidth, 'left');
     this.drawText(this.statusText(index), rect.x + titleWidth, rect.y, statusWidth, 'right');
 };
+
+Spriteset_Base.prototype.createWebGLToneChanger = function() {
+    var margin = 48;
+    var width = Graphics.width + margin * 2;
+    var height = Graphics.height + margin * 2;
+    this._toneFilter = new ToneFilter();
+    this._toneFilter.enabled = false;
+    this._baseSprite.filters = [this._toneFilter];
+    this._baseSprite.filterArea = new Rectangle(-margin, -margin, width, height);
+};
+
+Spriteset_Base.prototype.updateWebGLToneChanger = function() {
+    var tone = this._tone;
+    this._toneFilter.reset();
+    if (tone[0] || tone[1] || tone[2] || tone[3]) {
+        this._toneFilter.enabled = true;
+        this._toneFilter.adjustTone(tone[0], tone[1], tone[2]);
+        this._toneFilter.adjustSaturation(-tone[3]);
+    } else {
+        this._toneFilter.enabled = false;
+    }
+};
