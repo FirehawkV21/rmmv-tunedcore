@@ -1,5 +1,5 @@
 /*:
-* @plugindesc R1.00||Provides fixes in features that may be less utilized.
+* @plugindesc R1.01||Provides fixes in features that may be less utilized.
 * @author AceOfAces
 * 
 * @param engine
@@ -152,6 +152,267 @@ Sprite.prototype._renderWebGL = function(renderer) {
             renderer.setObjectRenderer(renderer.plugins[this.pluginName]);
 			renderer.plugins[this.pluginName].render(this);
         }
+};
+
+/**
+ * Draws the small text big once and resize it because modern broswers are poor at drawing small text.
+ *
+ * @method drawSmallText
+ * @param {String} text The text that will be drawn
+ * @param {Number} x The x coordinate for the left of the text
+ * @param {Number} y The y coordinate for the top of the text
+ * @param {Number} maxWidth The maximum allowed width of the text
+ * @param {Number} lineHeight The height of the text line
+ * @param {String} align The alignment of the text
+ */
+
+Bitmap.prototype.drawText = function(text, x, y, maxWidth, lineHeight, align) {
+    // Note: Firefox has a bug with textBaseline: Bug 737852
+    //       So we use 'alphabetic' here.
+    if (text !== undefined) {
+        if (this.fontSize < Bitmap.minFontSize) {
+            this.drawSmallText(text, x, y, maxWidth, lineHeight, align);
+            return;
+        }
+        var tx = x;
+        var ty = y + lineHeight - Math.round(lineHeight - this.fontSize * 0.7) / 2;
+        var context = this._context;
+        var alpha = context.globalAlpha;
+        maxWidth = maxWidth || 0xffffffff;
+        if (align === 'center') {
+            tx += maxWidth / 2;
+        }
+        if (align === 'right') {
+            tx += maxWidth;
+        }
+        context.save();
+        context.font = this._makeFontNameText();
+        context.textAlign = align;
+        context.textBaseline = 'alphabetic';
+        context.globalAlpha = 1;
+        this._drawTextOutline(text, tx, ty, maxWidth);
+        context.globalAlpha = alpha;
+        this._drawTextBody(text, tx, ty, maxWidth);
+        context.restore();
+        this._setDirty();
+    }
+};
+Bitmap.prototype.drawSmallText = function(text, x, y, maxWidth, lineHeight, align) {
+    var minFontSize = Bitmap.minFontSize;
+    var bitmap = Bitmap.drawSmallTextBitmap;
+    bitmap.fontFace = this.fontFace;
+    bitmap.fontSize = minFontSize;
+    bitmap.fontItalic = this.fontItalic;
+    bitmap.textColor = this.textColor;
+    bitmap.outlineColor = this.outlineColor;
+    bitmap.outlineWidth = this.outlineWidth * minFontSize / this.fontSize;
+    maxWidth = maxWidth || 816;
+    var scaledMaxWidth = maxWidth * minFontSize / this.fontSize;
+    if (scaledMaxWidth > bitmap.width) {
+        bitmap.width *= 2;
+    }
+    bitmap.drawText(text, 0, 0, scaledMaxWidth, minFontSize, align);
+    this.blt(bitmap, 0, 0, scaledMaxWidth, minFontSize, x, y + (lineHeight - this.fontSize) / 2, maxWidth, this.fontSize);
+    bitmap.clear();
+};
+
+Bitmap.prototype.checkDirty = function() {
+    if (this._dirty) {
+        this._baseTexture.update();
+        var baseTexture = this._baseTexture;
+        setTimeout(function() {
+            baseTexture.update();
+        }, 0);
+        this._dirty = false;
+    }
+};
+
+Bitmap.prototype._requestImage = function (url) {
+    if (Bitmap._reuseImages.length !== 0) {
+        this._image = Bitmap._reuseImages.pop();
+    } else {
+        this._image = new Image();
+    }
+    if (this._decodeAfterRequest && !this._loader) {
+        this._loader = ResourceHandler.createLoader(url, this._requestImage.bind(this, url), this._onError.bind(this));
+    }
+    this._url = url;
+    this._loadingState = 'requesting';
+
+    if (!Decrypter.checkImgIgnore(url) && Decrypter.hasEncryptedImages) {
+        this._loadingState = 'decrypting';
+        Decrypter.decryptImg(url, this);
+    } else {
+        this._image.src = url;
+        this._image.addEventListener('load', this._loadListener = Bitmap.prototype._onLoad.bind(this));
+        this._image.addEventListener('error', this._errorListener = this._loader || Bitmap.prototype._onError.bind(this));
+    }
+};
+
+Graphics._cssFontLoading = document.fonts && document.fonts.ready && document.fonts.ready.then;
+
+Graphics.render = function (stage) {
+    if (this._skipCount <= 0) {
+        var startTime = Date.now();
+        if (stage) {
+            this._renderer.render(stage);
+            if (this._renderer.gl && this._renderer.gl.flush) {
+                this._renderer.gl.flush();
+            }
+        }
+        var endTime = Date.now();
+        var elapsed = endTime - startTime;
+        this._skipCount = Math.min(Math.floor(elapsed / 15), this._maxSkip);
+        this._rendered = true;
+    } else {
+        this._skipCount--;
+        this._rendered = false;
+    }
+    this.frameCount++;
+};
+
+Graphics._isFullScreen = function () {
+    return document.fullscreenElement ||
+           document.mozFullScreen || 
+           document.webkitFullscreenElement ||
+           document.msFullscreenElement;
+};
+
+Graphics._cancelFullScreen = function () {
+    if (document.exitFullscreen) { 
+        document.exitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+    } else if (document.webkitCancelFullScreen) {
+        document.webkitCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+    }
+};
+
+TouchInput._setupEventHandlers = function() {
+    var isSupportPassive = Utils.isSupportPassiveEvent();
+    document.addEventListener('mousedown', this._onMouseDown.bind(this));
+    document.addEventListener('mousemove', this._onMouseMove.bind(this));
+    document.addEventListener('mouseup', this._onMouseUp.bind(this));
+    document.addEventListener('wheel', this._onWheel.bind(this));
+    document.addEventListener('touchstart', this._onTouchStart.bind(this), isSupportPassive ? {passive: false} : false);
+    document.addEventListener('touchmove', this._onTouchMove.bind(this), isSupportPassive ? {passive: false} : false);
+    document.addEventListener('touchend', this._onTouchEnd.bind(this));
+    document.addEventListener('touchcancel', this._onTouchCancel.bind(this));
+    document.addEventListener('pointerdown', this._onPointerDown.bind(this));
+    window.addEventListener('blur', this._onLostFocus.bind(this));
+};
+
+/**
+ * @static
+ * @method _onLostFocus
+ * @private
+ */
+TouchInput._onLostFocus = function() {
+    this.clear();
+};
+
+Sprite.prototype._executeTint = function(x, y, w, h) {
+    var context = this._context;
+    var tone = this._colorTone;
+    var color = this._blendColor;
+    context.globalCompositeOperation = 'copy';
+    context.drawImage(this._bitmap.canvas, x, y, w, h, 0, 0, w, h);
+
+    if (tone[0] || tone[1] || tone[2] || tone[3]) {
+        if (Graphics.canUseDifferenceBlend()) {
+            var gray = Math.max(0, tone[3]);
+            context.globalCompositeOperation = 'saturation';
+            context.fillStyle = 'rgba(255,255,255,' + gray / 255 + ')';
+            context.fillRect(0, 0, w, h);
+        }
+
+        var r1 = Math.max(0, tone[0]);
+        var g1 = Math.max(0, tone[1]);
+        var b1 = Math.max(0, tone[2]);
+        context.globalCompositeOperation = 'lighter';
+        context.fillStyle = Utils.rgbToCssColor(r1, g1, b1);
+        context.fillRect(0, 0, w, h);
+
+        if (Graphics.canUseDifferenceBlend()) {
+            context.globalCompositeOperation = 'difference';
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, w, h);
+
+            var r2 = Math.max(0, -tone[0]);
+            var g2 = Math.max(0, -tone[1]);
+            var b2 = Math.max(0, -tone[2]);
+            context.globalCompositeOperation = 'lighter';
+            context.fillStyle = Utils.rgbToCssColor(r2, g2, b2);
+            context.fillRect(0, 0, w, h);
+
+            context.globalCompositeOperation = 'difference';
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, w, h);
+        }
+    }
+
+    var r3 = Math.max(0, color[0]);
+    var g3 = Math.max(0, color[1]);
+    var b3 = Math.max(0, color[2]);
+    var a3 = Math.max(0, color[3]);
+    context.globalCompositeOperation = 'source-atop';
+    context.fillStyle = Utils.rgbToCssColor(r3, g3, b3);
+    context.globalAlpha = a3 / 255;
+    context.fillRect(0, 0, w, h);
+    context.globalCompositeOperation = 'destination-in';
+    context.globalAlpha = 1;
+    context.drawImage(this._bitmap.canvas, x, y, w, h, 0, 0, w, h);
+};
+
+WindowLayer.prototype._maskWindow = function (window, shift) {
+    this._windowMask._currentBounds = null;
+    this._windowMask.boundsDirty = true;
+    var rect = this._windowRect;
+    rect.x = this.x + shift.x + window.x;
+    rect.y = this.y + shift.y + window.y + window.height / 2 * (1 - window._openness / 255);
+    rect.width = window.width;
+    rect.height = window.height * window._openness / 255;
+};
+
+WebAudio.prototype._readOgg = function(array) {
+    var index = 0;
+    while (index < array.length) {
+        if (this._readFourCharacters(array, index) === 'OggS') {
+            index += 26;
+            var vorbisHeaderFound = false;
+            var numSegments = array[index++];
+            var segments = [];
+            for (var i = 0; i < numSegments; i++) {
+                segments.push(array[index++]);
+            }
+            for (i = 0; i < numSegments; i++) {
+                if (this._readFourCharacters(array, index + 1) === 'vorb') {
+                    var headerType = array[index];
+                    if (headerType === 1) {
+                        this._sampleRate = this._readLittleEndian(array, index + 12);
+                    } else if (headerType === 3) {
+                        var size = 0;
+                        for (; i < numSegments; i++) {
+                            size += segments[i];
+                            if (segments[i] < 255) {
+                                break;
+                            }
+                        }
+                        this._readMetaData(array, index, size);
+                    }
+                    vorbisHeaderFound = true;
+                }
+                index += segments[i];
+            }
+            if (!vorbisHeaderFound) {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
 };
 
 Tilemap.prototype.initialize = function() {
@@ -595,4 +856,136 @@ if (!FirehawkADK.ParamDeck.RemoveVideoOnTouchEnd){
         this._video.play();
     }
 }
+};
+
+StorageManager.localFileDirectoryPath = function() {
+    var path = require('path');
+
+    var base = path.dirname(process.mainModule.filename);
+    if (this.canMakeWwwSaveDirectory()) {
+        return path.join(base, 'save/');
+    } else {
+        return path.join(path.dirname(base), 'save/');
+    }
+};
+
+StorageManager.canMakeWwwSaveDirectory = function() {
+    if (this._canMakeWwwSaveDirectory === undefined) {
+        var fs = require('fs');
+        var path = require('path');
+        var base = path.dirname(process.mainModule.filename);
+        var testPath = path.join(base, 'testDirectory/');
+        try {
+            fs.mkdirSync(testPath);
+            fs.rmdirSync(testPath);
+            this._canMakeWwwSaveDirectory = true;
+        } catch (e) {
+            this._canMakeWwwSaveDirectory = false;
+        }
+    }
+    return this._canMakeWwwSaveDirectory;
+};
+
+SceneManager.onError = function(e) {
+    console.error(e.message);
+    if (e.filename || e.lineno) {
+        console.error(e.filename, e.lineno);
+        try {
+            this.stop();
+            Graphics.printError('Error', e.message);
+            AudioManager.stopAll();
+        } catch (e2) {
+        }
+    }
+};
+
+SceneManager.updateMain = function() {
+    if (Utils.isMobileSafari()) {
+        this.changeScene();
+        this.updateScene();
+    } else {
+        var newTime = this._getTimeInMsWithoutMobileSafari();
+        if (this._currentTime === undefined) { this._currentTime = newTime; }
+        var fTime = (newTime - this._currentTime) / 1000;
+        if (fTime > 0.25) { fTime = 0.25; }
+        this._currentTime = newTime;
+        this._accumulator += fTime;
+        while (this._accumulator >= this._deltaTime) {
+            this.updateInputData();
+            this.changeScene();
+            this.updateScene();
+            this._accumulator -= this._deltaTime;
+        }
+    }
+    this.renderScene();
+    this.requestUpdate();
+};
+
+BattleManager.inputtingAction = function() {
+    var actor = this.actor();
+    return actor ? actor.inputtingAction() : null;
+};
+
+BattleManager.selectNextCommand = function() {
+    do {
+        var actor = this.actor();
+        if (!actor || !actor.selectNextCommand()) {
+            this.changeActor(this._actorIndex + 1, 'waiting');
+            if (this._actorIndex >= $gameParty.size()) {
+                this.startTurn();
+                break;
+            }
+        }
+    } while (!this.actor().canInput());
+};
+
+BattleManager.selectPreviousCommand = function() {
+    do {
+        var actor = this.actor();
+        if (!actor || !actor.selectPreviousCommand()) {
+            this.changeActor(this._actorIndex - 1, 'undecided');
+            if (this._actorIndex < 0) {
+                return;
+            }
+        }
+    } while (!this.actor().canInput());
+};
+
+Scene_Map.prototype.updateMainMultiply = function() {
+    this.updateMain();
+    if (this.isFastForward()) {
+        if (!this.isMapTouchOk()) {
+            this.updateDestination();
+        }
+        this.updateMain();
+    }
+};
+
+Scene_ItemBase.prototype.canUse = function() {
+    var user = this.user();
+    if(user){
+        return user.canUse(this.item()) && this.isItemEffectsValid();
+    }
+    return false;
+};
+
+Window_Base.prototype.drawCharacter = function(characterName, characterIndex, x, y) {
+    var bitmap = ImageManager.loadCharacter(characterName);
+    var big = ImageManager.isBigCharacter(characterName);
+    var pw = bitmap.width / (big ? 3 : 12);
+    var ph = bitmap.height / (big ? 4 : 8);
+    var n = big ? 0: characterIndex;
+    var sx = (n % 4 * 3 + 1) * pw;
+    var sy = (Math.floor(n / 4) * 4) * ph;
+    this.contents.blt(bitmap, sx, sy, pw, ph, x - pw / 2, y - ph);
+};
+
+Window_Options.prototype.drawItem = function(index) {
+    var rect = this.itemRectForText(index);
+    var statusWidth = this.statusWidth();
+    var titleWidth = rect.width - statusWidth;
+    this.resetTextColor();
+    this.changePaintOpacity(this.isCommandEnabled(index));
+    this.drawText(this.commandName(index), rect.x, rect.y, titleWidth, 'left');
+    this.drawText(this.statusText(index), rect.x + titleWidth, rect.y, statusWidth, 'right');
 };
