@@ -27,6 +27,48 @@
 * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 */
 
+DataManager.setupNewGame = function() {
+    this.createGameObjects();
+    this.selectSavefileForNewGame();
+    $gameParty.setupStartingMembers();
+    $gamePlayer.reserveTransfer($dataSystem.startMapId,
+        $dataSystem.startX, $dataSystem.startY);
+    Graphics.frameCount = 0;
+    SceneManager.resetFrameCount();
+};
+
+SceneManager._frameCount = 0;
+
+SceneManager.frameCount = function() {
+    return this._frameCount;
+};
+
+SceneManager.setFrameCount = function(frameCount) {
+    this._frameCount = frameCount;
+};
+
+SceneManager.resetFrameCount = function() {
+    this._frameCount = 0;
+};
+
+SceneManager.updateScene = function() {
+    if (this._scene) {
+        if (!this._sceneStarted && this._scene.isReady()) {
+            this._scene.start();
+            this._sceneStarted = true;
+            this.onSceneStart();
+        }
+        if (this.isCurrentSceneStarted()) {
+            this.updateFrameCount();
+            this._scene.update();
+        }
+    }
+};
+
+SceneManager.updateFrameCount = function() {
+    this._frameCount++;
+};
+
 Game_System.prototype.initialize = function() {
     this._saveEnabled = true;
     this._menuEnabled = true;
@@ -36,9 +78,9 @@ Game_System.prototype.initialize = function() {
     this._winCount = 0;
     this._escapeCount = 0;
     this._saveCount = 0;
-    this._frameCount = 0;
     this._versionId = 0;
     this._framesOnSave = 0;
+    this._sceneFramesOnSave = 0;
     this._bgmOnSave = null;
     this._bgsOnSave = null;
     this._windowTone = null;
@@ -49,31 +91,29 @@ Game_System.prototype.initialize = function() {
     this._walkingBgm = null;
 };
 
-Game_System.prototype.frameCount = function() {
-    return this._frameCount;
-};
-
-Game_System.prototype.onFrameUpdate = function() {
-    this._frameCount++;
-};
-
-Game_System.prototype.playtime = function() {
-    return Math.floor(this._frameCount / 60);
-};
-
-Scene_Base.prototype.update = function() {
-    $gameSystem.onFrameUpdate();
-    this.updateFade();
-    this.updateChildren();
+Game_System.prototype.onBeforeSave = function() {
+    this._saveCount++;
+    this._versionId = $dataSystem.versionId;
+    this._framesOnSave = Graphics.frameCount;
+    this._sceneFramesOnSave = SceneManager.frameCount();
+    this._bgmOnSave = AudioManager.saveBgm();
+    this._bgsOnSave = AudioManager.saveBgs();
 };
 
 Game_System.prototype.onAfterLoad = function() {
-    if (!this._frameCount) {
-        this._frameCount = this._framesOnSave;
-    }
     Graphics.frameCount = this._framesOnSave;
+    SceneManager.setFrameCount(this._sceneFramesOnSave || this._framesOnSave);
     AudioManager.playBgm(this._bgmOnSave);
     AudioManager.playBgs(this._bgsOnSave);
+};
+
+Game_System.prototype.playtime = function() {
+    return Math.floor(SceneManager.frameCount() / 60);
+};
+
+Scene_Base.prototype.update = function() {
+    this.updateFade();
+    this.updateChildren();
 };
 
 DataManager.loadGlobalInfo = function() {
