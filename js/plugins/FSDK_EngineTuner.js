@@ -91,6 +91,7 @@
 * - Half tile size is only calculated when when Tilemap is initialized.
 * - Replaced calls to RegExp.$1 in the WebAudio._readMetadata.
 * - Re-worked parts of the decryption to improve compatibility.
+* - Ported bug fixes and improvements from corescript 1.3.
 */
 
 var FirehawkADK = FirehawkADK || {};
