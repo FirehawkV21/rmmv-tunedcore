@@ -1680,9 +1680,13 @@ Bitmap.prototype._setDirty = function () {
  * updates texture is bitmap was dirty
  * @method checkDirty
  */
-Bitmap.prototype.checkDirty = function () {
+Bitmap.prototype.checkDirty = function() {
     if (this._dirty) {
         this._baseTexture.update();
+        var baseTexture = this._baseTexture;
+        setTimeout(function() {
+            baseTexture.update();
+        }, 0);
         this._dirty = false;
     }
 };

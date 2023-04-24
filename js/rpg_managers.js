@@ -1939,12 +1939,14 @@ SceneManager.terminate = function() {
 
 SceneManager.onError = function(e) {
     console.error(e.message);
-    console.error(e.filename, e.lineno);
-    try {
-        this.stop();
-        Graphics.printError('Error', e.message);
-        AudioManager.stopAll();
-    } catch (e2) {
+    if (e.filename || e.lineno) {
+        console.error(e.filename, e.lineno);
+        try {
+            this.stop();
+            Graphics.printError('Error', e.message);
+            AudioManager.stopAll();
+        } catch (e2) {
+        }
     }
 };
 
@@ -1995,8 +1997,9 @@ SceneManager.updateMain = function() {
         this.updateScene();
     } else {
         var newTime = this._getTimeInMsWithoutMobileSafari();
+        if (this._currentTime === undefined) { this._currentTime = newTime; }
         var fTime = (newTime - this._currentTime) / 1000;
-        if (fTime > 0.25) fTime = 0.25;
+        if (fTime > 0.25) { fTime = 0.25; }
         this._currentTime = newTime;
         this._accumulator += fTime;
         while (this._accumulator >= this._deltaTime) {
