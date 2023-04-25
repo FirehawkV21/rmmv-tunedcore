@@ -1,5 +1,5 @@
 //=============================================================================
-// rpg_windows.js v1.6.2
+// rpg_windows.js v1.6.1 (community-1.3b)
 //=============================================================================
 
 //-----------------------------------------------------------------------------
@@ -2834,7 +2834,14 @@ Window_SavefileList.prototype.drawItem = function(index) {
 };
 
 Window_SavefileList.prototype.drawFileId = function(id, x, y) {
-    this.drawText(TextManager.file + ' ' + id, x, y, 180);
+    if (DataManager.isAutoSaveFileId(id)) {
+        if (this._mode === 'save') {
+            this.changePaintOpacity(false);
+        }
+        this.drawText(TextManager.file + ' ' + id + '(Auto)', x, y, 180);
+    } else {
+        this.drawText(TextManager.file + ' ' + id, x, y, 180);
+    }
 };
 
 Window_SavefileList.prototype.drawContents = function(info, rect, valid) {
@@ -4289,6 +4296,8 @@ Window_Message.prototype.clearFlags = function() {
     this._showFast = false;
     this._lineShowFast = false;
     this._pauseSkip = false;
+    this._textSpeed = 0;
+    this._textSpeedCount = 0;
 };
 
 Window_Message.prototype.numVisibleRows = function() {
@@ -4408,8 +4417,13 @@ Window_Message.prototype.updateMessage = function() {
                 this.newPage(this._textState);
             }
             this.updateShowFast();
+            if (!this._showFast && !this._lineShowFast && this._textSpeedCount < this._textSpeed) {
+                this._textSpeedCount++;
+                break;
+            }
+            this._textSpeedCount = 0;
             this.processCharacter(this._textState);
-            if (!this._showFast && !this._lineShowFast) {
+            if (!this._showFast && !this._lineShowFast && this._textSpeed !== -1) {
                 break;
             }
             if (this.pause || this._waitCount > 0) {
@@ -4544,6 +4558,9 @@ Window_Message.prototype.processEscapeCharacter = function(code, textState) {
         break;
     case '^':
         this._pauseSkip = true;
+        break;
+    case 'S':
+        this._textSpeed = this.obtainEscapeParam(textState) - 1;
         break;
     default:
         Window_Base.prototype.processEscapeCharacter.call(this, code, textState);

@@ -1,5 +1,5 @@
 //=============================================================================
-// rpg_managers.js v1.6.2
+// rpg_managers.js v1.6.1 (community-1.3b)
 //=============================================================================
 
 //-----------------------------------------------------------------------------
@@ -44,6 +44,7 @@ var $testEvent        = null;
 DataManager._globalId       = 'RPGMV';
 DataManager._lastAccessedId = 1;
 DataManager._errorUrl       = null;
+DataManager._autoSaveFileId = 0;
 
 DataManager._databaseFiles = [
     { name: '$dataActors',       src: 'Actors.json'       },
@@ -220,6 +221,7 @@ DataManager.setupNewGame = function() {
     $gamePlayer.reserveTransfer($dataSystem.startMapId,
         $dataSystem.startX, $dataSystem.startY);
     Graphics.frameCount = 0;
+    SceneManager.resetFrameCount();
 };
 
 DataManager.setupBattleTest = function() {
@@ -239,6 +241,9 @@ DataManager.setupEventTest = function() {
 };
 
 DataManager.loadGlobalInfo = function() {
+    if (this._globalInfo) {
+        return this._globalInfo;
+    }
     var json;
     try {
         json = StorageManager.load(0);
@@ -247,19 +252,20 @@ DataManager.loadGlobalInfo = function() {
         return [];
     }
     if (json) {
-        var globalInfo = JSON.parse(json);
+        this._globalInfo = JSON.parse(json);
         for (var i = 1; i <= this.maxSavefiles(); i++) {
             if (!StorageManager.exists(i)) {
-                delete globalInfo[i];
+                delete this._globalInfo[i];
             }
         }
-        return globalInfo;
+        return this._globalInfo;
     } else {
-        return [];
+        return this._globalInfo = [];
     }
 };
 
 DataManager.saveGlobalInfo = function(info) {
+    this._globalInfo = null;
     StorageManager.save(0, JSON.stringify(info));
 };
 
@@ -381,7 +387,6 @@ DataManager.saveGameWithoutRescue = function(savefileId) {
 };
 
 DataManager.loadGameWithoutRescue = function(savefileId) {
-    var globalInfo = this.loadGlobalInfo();
     if (this.isThisGameFile(savefileId)) {
         var json = StorageManager.load(savefileId);
         this.createGameObjects();
@@ -454,6 +459,23 @@ DataManager.extractSaveContents = function(contents) {
     $gameParty         = contents.party;
     $gameMap           = contents.map;
     $gamePlayer        = contents.player;
+};
+
+DataManager.setAutoSaveFileId = function(autoSaveFileId) {
+    this._autoSaveFileId = autoSaveFileId;
+};
+
+DataManager.isAutoSaveFileId = function(saveFileId) {
+    return this._autoSaveFileId !== 0 && this._autoSaveFileId === saveFileId;
+};
+
+DataManager.autoSaveGame = function() {
+    if (this._autoSaveFileId !== 0 && !this.isEventTest() && $gameSystem.isSaveEnabled()) {
+        $gameSystem.onBeforeSave();
+        if (this.saveGame(this._autoSaveFileId)) {
+            StorageManager.cleanBackup(this._autoSaveFileId);
+        }
+    }
 };
 
 //-----------------------------------------------------------------------------
@@ -775,6 +797,17 @@ StorageManager.localFilePath = function(savefileId) {
     return this.localFileDirectoryPath() + name;
 };
 
+StorageManager.webStorageKey = function(savefileId) {
+    if (savefileId < 0) {
+        return 'RPG Config';
+    } else if (savefileId === 0) {
+        return 'RPG Global';
+    } else {
+        return 'RPG File%1'.format(savefileId);
+    }
+};
+
+// Enigma Virtual Box cannot make www/save directory
 StorageManager.canMakeWwwSaveDirectory = function() {
     if (this._canMakeWwwSaveDirectory === undefined) {
         var fs = require('fs');
@@ -790,17 +823,6 @@ StorageManager.canMakeWwwSaveDirectory = function() {
         }
     }
     return this._canMakeWwwSaveDirectory;
-};
-
-
-StorageManager.webStorageKey = function(savefileId) {
-    if (savefileId < 0) {
-        return 'RPG Config';
-    } else if (savefileId === 0) {
-        return 'RPG Global';
-    } else {
-        return 'RPG File%1'.format(savefileId);
-    }
 };
 
 //-----------------------------------------------------------------------------
@@ -904,7 +926,9 @@ ImageManager.loadNormalBitmap = function(path, hue) {
     var key = this._generateCacheKey(path, hue);
     var bitmap = this._imageCache.get(key);
     if (!bitmap) {
-        bitmap = Bitmap.load(decodeURIComponent(path));
+        bitmap = Bitmap.load(path);
+        this._callCreationHook(bitmap);
+
         bitmap.addLoadListener(function() {
             bitmap.rotateHue(hue);
         });
@@ -1094,6 +1118,8 @@ ImageManager.requestNormalBitmap = function(path, hue){
     var bitmap = this._imageCache.get(key);
     if(!bitmap){
         bitmap = Bitmap.request(path);
+        this._callCreationHook(bitmap);
+
         bitmap.addLoadListener(function(){
             bitmap.rotateHue(hue);
         });
@@ -1114,6 +1140,13 @@ ImageManager.clearRequest = function(){
     this._requestQueue.clear();
 };
 
+ImageManager.setCreationHook = function(hook){
+    this._creationHook = hook;
+};
+
+ImageManager._callCreationHook = function(bitmap){
+    if(this._creationHook) this._creationHook(bitmap);
+};
 //-----------------------------------------------------------------------------
 // AudioManager
 //
@@ -1491,7 +1524,9 @@ AudioManager.createBuffer = function(folder, name) {
         else Html5Audio.setup(url);
         return Html5Audio;
     } else {
-        return new WebAudio(url);
+        var audio = new WebAudio(url);
+        this._callCreationHook(audio);
+        return audio;
     }
 };
 
@@ -1535,6 +1570,13 @@ AudioManager.checkWebAudioError = function(webAudio) {
     }
 };
 
+AudioManager.setCreationHook = function(hook){
+    this._creationHook = hook;
+};
+
+AudioManager._callCreationHook = function(audio){
+    if(this._creationHook) this._creationHook(audio);
+};
 //-----------------------------------------------------------------------------
 // SoundManager
 //
@@ -1818,6 +1860,7 @@ SceneManager._boxHeight         = 624;
 SceneManager._deltaTime = 1.0 / 60.0;
 if (!Utils.isMobileSafari()) SceneManager._currentTime = SceneManager._getTimeInMsWithoutMobileSafari();
 SceneManager._accumulator = 0.0;
+SceneManager._frameCount = 0;
 
 SceneManager.run = function(sceneClass) {
     try {
@@ -1830,6 +1873,7 @@ SceneManager.run = function(sceneClass) {
 };
 
 SceneManager.initialize = function() {
+    this.initProgressWatcher();
     this.initGraphics();
     this.checkFileAccess();
     this.initAudio();
@@ -1837,6 +1881,10 @@ SceneManager.initialize = function() {
     this.initNwjs();
     this.checkPluginErrors();
     this.setupErrorHandlers();
+};
+
+SceneManager.initProgressWatcher = function(){
+    ProgressWatcher.initialize();
 };
 
 SceneManager.initGraphics = function() {
@@ -1913,6 +1961,18 @@ SceneManager.setupErrorHandlers = function() {
     document.addEventListener('keydown', this.onKeyDown.bind(this));
 };
 
+SceneManager.frameCount = function() {
+    return this._frameCount;
+};
+
+SceneManager.setFrameCount = function(frameCount) {
+    this._frameCount = frameCount;
+};
+
+SceneManager.resetFrameCount = function() {
+    this._frameCount = 0;
+};
+
 SceneManager.requestUpdate = function() {
     if (!this._stopped) {
         requestAnimationFrame(this.update.bind(this));
@@ -1970,6 +2030,7 @@ SceneManager.onKeyDown = function(event) {
 SceneManager.catchException = function(e) {
     if (e instanceof Error) {
         Graphics.printError(e.name, e.message);
+        Graphics.printErrorDetail(e);
         console.error(e.stack);
     } else {
         Graphics.printError('UnknownError', e);
@@ -2046,6 +2107,7 @@ SceneManager.updateScene = function() {
             this.onSceneStart();
         }
         if (this.isCurrentSceneStarted()) {
+            this.updateFrameCount();
             this._scene.update();
         }
     }
@@ -2057,6 +2119,10 @@ SceneManager.renderScene = function() {
     } else if (this._scene) {
         this.onSceneLoading();
     }
+};
+
+SceneManager.updateFrameCount = function() {
+    this._frameCount++;
 };
 
 SceneManager.onSceneCreate = function() {
