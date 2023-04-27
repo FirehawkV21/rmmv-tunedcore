@@ -262,7 +262,6 @@ DataManager.loadGlobalInfo = function() {
 };
 
 DataManager.saveGlobalInfo = function(info) {
-    this._globalInfo = null;
     StorageManager.save(0, JSON.stringify(info));
 };
 
