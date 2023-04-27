@@ -1,5 +1,5 @@
 /*:
-* @plugindesc R1.00||Enables the new save/load algorithm.
+* @plugindesc R1.01||Enables the new save/load algorithm.
 * @author AceOfAces
 * @help
 * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -114,45 +114,4 @@ Game_System.prototype.playtime = function() {
 Scene_Base.prototype.update = function() {
     this.updateFade();
     this.updateChildren();
-};
-
-DataManager.loadGlobalInfo = function() {
-    if (this._globalInfo) {
-        return this._globalInfo;
-    }
-    var json;
-    try {
-        json = StorageManager.load(0);
-    } catch (e) {
-        console.error(e);
-        return this._globalInfo = [];
-    }
-    if (json) {
-        this._globalInfo = JSON.parse(json);
-        for (var i = 1; i <= this.maxSavefiles(); i++) {
-            if (!StorageManager.exists(i)) {
-                delete this._globalInfo[i];
-            }
-        }
-        return this._globalInfo;
-    } else {
-        return this._globalInfo = [];
-    }
-};
-
-DataManager.saveGlobalInfo = function(info) {
-    this._globalInfo = null;
-    StorageManager.save(0, JSON.stringify(info));
-};
-
-DataManager.loadGameWithoutRescue = function(savefileId) {
-    if (this.isThisGameFile(savefileId)) {
-        var json = StorageManager.load(savefileId);
-        this.createGameObjects();
-        this.extractSaveContents(JsonEx.parse(json));
-        this._lastAccessedId = savefileId;
-        return true;
-    } else {
-        return false;
-    }
 };

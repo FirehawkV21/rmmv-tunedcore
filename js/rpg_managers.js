@@ -241,9 +241,6 @@ DataManager.setupEventTest = function() {
 };
 
 DataManager.loadGlobalInfo = function() {
-    if (this._globalInfo) {
-        return this._globalInfo;
-    }
     var json;
     try {
         json = StorageManager.load(0);
@@ -252,15 +249,15 @@ DataManager.loadGlobalInfo = function() {
         return [];
     }
     if (json) {
-        this._globalInfo = JSON.parse(json);
+        var globalInfo = JSON.parse(json);
         for (var i = 1; i <= this.maxSavefiles(); i++) {
             if (!StorageManager.exists(i)) {
-                delete this._globalInfo[i];
+                delete globalInfo[i];
             }
         }
-        return this._globalInfo;
+        return globalInfo;
     } else {
-        return this._globalInfo = [];
+        return [];
     }
 };
 
@@ -387,6 +384,7 @@ DataManager.saveGameWithoutRescue = function(savefileId) {
 };
 
 DataManager.loadGameWithoutRescue = function(savefileId) {
+    var globalInfo = this.loadGlobalInfo();
     if (this.isThisGameFile(savefileId)) {
         var json = StorageManager.load(savefileId);
         this.createGameObjects();
