@@ -51,6 +51,15 @@
 * @on Don't
 * @off Do
 * 
+* @param accuratePlayTime
+* @parent gameplay
+* @type boolean
+* @text Accurate Play Time Calculation
+* @desc Eanbles a patch that uses a new algorithm for calulating play time. Turn this off if you are using a plugin to fix this.
+* @default true
+* @on Yes
+* @off No
+* 
 * @help
 * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 * Engine Tuner
@@ -102,13 +111,14 @@ FirehawkADK.ParamDeck.RemoveVideoOnTouchEnd = String(paramdeck['removeVideoCheck
 FirehawkADK.ParamDeck.DontInitializeFollowers = String(paramdeck['removeBackgroundBlurOnMenus']).trim().toLowerCase() === 'true';
 FirehawkADK.ParamDeck.DontBlurMenuBackground = String(paramdeck['dontInitFollowers']).trim().toLowerCase() === 'true';
 FirehawkADK.ParamDeck.PreferedRenderer = String(paramdeck['renderingMode']).toLowerCase();
+FirehawkADK.ParamDeck.CalcAccuratePlaytimePatch = String(paramdeck['accuratePlaytime']).toLowerCase() === 'true';
 
-SceneManager.preferableRendererType = function() {
+SceneManager.preferableRendererType = function () {
     if (Utils.isOptionValid('canvas')) {
         return 'canvas';
     } else if (Utils.isOptionValid('webgl')) {
         return 'webgl';
-    } else switch (FirehawkADK.ParamDeck.PreferedRenderer){
+    } else switch (FirehawkADK.ParamDeck.PreferedRenderer) {
         case 'webgl':
             return 'webgl';
         case 'canvas':
@@ -118,41 +128,41 @@ SceneManager.preferableRendererType = function() {
     }
 };
 
-Sprite.prototype._renderCanvas = function(renderer) {
+Sprite.prototype._renderCanvas = function (renderer) {
     if (this.bitmap) {
         this.bitmap.touch();
     }
-    if(this.bitmap && !this.bitmap.isReady()){
+    if (this.bitmap && !this.bitmap.isReady()) {
         return;
     }
-        this._renderCanvas_PIXI(renderer);
+    this._renderCanvas_PIXI(renderer);
 };
 
-Sprite.prototype._renderWebGL = function(renderer) {
+Sprite.prototype._renderWebGL = function (renderer) {
     if (this.bitmap) {
         this.bitmap.touch();
     }
-    if(this.bitmap && !this.bitmap.isReady()){
+    if (this.bitmap && !this.bitmap.isReady()) {
         return;
     }
-        if (this._bitmap) {
-            this._bitmap.checkDirty();
-        }
+    if (this._bitmap) {
+        this._bitmap.checkDirty();
+    }
 
-        //copy of pixi-v4 internal code
-        this.calculateVertices();
+    //copy of pixi-v4 internal code
+    this.calculateVertices();
 
-        if (this.pluginName === 'sprite' && this._isPicture) {
-            // use heavy renderer, which reduces artifacts and applies corrent blendMode,
-            // but does not use multitexture optimization
-            this._speedUpCustomBlendModes(renderer);
-            renderer.setObjectRenderer(renderer.plugins.picture);
-            renderer.plugins.picture.render(this);
-        } else {
-            // use pixi super-speed renderer
-            renderer.setObjectRenderer(renderer.plugins[this.pluginName]);
-			renderer.plugins[this.pluginName].render(this);
-        }
+    if (this.pluginName === 'sprite' && this._isPicture) {
+        // use heavy renderer, which reduces artifacts and applies corrent blendMode,
+        // but does not use multitexture optimization
+        this._speedUpCustomBlendModes(renderer);
+        renderer.setObjectRenderer(renderer.plugins.picture);
+        renderer.plugins.picture.render(this);
+    } else {
+        // use pixi super-speed renderer
+        renderer.setObjectRenderer(renderer.plugins[this.pluginName]);
+        renderer.plugins[this.pluginName].render(this);
+    }
 };
 
 /**
@@ -167,7 +177,7 @@ Sprite.prototype._renderWebGL = function(renderer) {
  * @param {String} align The alignment of the text
  */
 
-Bitmap.prototype.drawText = function(text, x, y, maxWidth, lineHeight, align) {
+Bitmap.prototype.drawText = function (text, x, y, maxWidth, lineHeight, align) {
     // Note: Firefox has a bug with textBaseline: Bug 737852
     //       So we use 'alphabetic' here.
     if (text !== undefined) {
@@ -199,7 +209,7 @@ Bitmap.prototype.drawText = function(text, x, y, maxWidth, lineHeight, align) {
     }
 };
 
-Bitmap.prototype.drawSmallText = function(text, x, y, maxWidth, lineHeight, align) {
+Bitmap.prototype.drawSmallText = function (text, x, y, maxWidth, lineHeight, align) {
     var minFontSize = Bitmap.minFontSize;
     var bitmap = Bitmap.drawSmallTextBitmap;
     bitmap.fontFace = this.fontFace;
@@ -227,11 +237,11 @@ Bitmap.prototype.drawSmallText = function(text, x, y, maxWidth, lineHeight, alig
     bitmap.clear();
 };
 
-Bitmap.prototype.checkDirty = function() {
+Bitmap.prototype.checkDirty = function () {
     if (this._dirty) {
         this._baseTexture.update();
         var baseTexture = this._baseTexture;
-        setTimeout(function() {
+        setTimeout(function () {
             baseTexture.update();
         }, 0);
         this._dirty = false;
@@ -284,13 +294,13 @@ Graphics.render = function (stage) {
 
 Graphics._isFullScreen = function () {
     return document.fullscreenElement ||
-           document.mozFullScreen || 
-           document.webkitFullscreenElement ||
-           document.msFullscreenElement;
+        document.mozFullScreen ||
+        document.webkitFullscreenElement ||
+        document.msFullscreenElement;
 };
 
 Graphics._cancelFullScreen = function () {
-    if (document.exitFullscreen) { 
+    if (document.exitFullscreen) {
         document.exitFullscreen();
     } else if (document.mozCancelFullScreen) {
         document.mozCancelFullScreen();
@@ -301,14 +311,14 @@ Graphics._cancelFullScreen = function () {
     }
 };
 
-TouchInput._setupEventHandlers = function() {
+TouchInput._setupEventHandlers = function () {
     var isSupportPassive = Utils.isSupportPassiveEvent();
     document.addEventListener('mousedown', this._onMouseDown.bind(this));
     document.addEventListener('mousemove', this._onMouseMove.bind(this));
     document.addEventListener('mouseup', this._onMouseUp.bind(this));
     document.addEventListener('wheel', this._onWheel.bind(this));
-    document.addEventListener('touchstart', this._onTouchStart.bind(this), isSupportPassive ? {passive: false} : false);
-    document.addEventListener('touchmove', this._onTouchMove.bind(this), isSupportPassive ? {passive: false} : false);
+    document.addEventListener('touchstart', this._onTouchStart.bind(this), isSupportPassive ? { passive: false } : false);
+    document.addEventListener('touchmove', this._onTouchMove.bind(this), isSupportPassive ? { passive: false } : false);
     document.addEventListener('touchend', this._onTouchEnd.bind(this));
     document.addEventListener('touchcancel', this._onTouchCancel.bind(this));
     document.addEventListener('pointerdown', this._onPointerDown.bind(this));
@@ -320,11 +330,11 @@ TouchInput._setupEventHandlers = function() {
  * @method _onLostFocus
  * @private
  */
-TouchInput._onLostFocus = function() {
+TouchInput._onLostFocus = function () {
     this.clear();
 };
 
-Sprite.prototype._executeTint = function(x, y, w, h) {
+Sprite.prototype._executeTint = function (x, y, w, h) {
     var context = this._context;
     var tone = this._colorTone;
     var color = this._blendColor;
@@ -387,7 +397,7 @@ WindowLayer.prototype._maskWindow = function (window, shift) {
     rect.height = window.height * window._openness / 255;
 };
 
-WebAudio.prototype._readOgg = function(array) {
+WebAudio.prototype._readOgg = function (array) {
     var index = 0;
     while (index < array.length) {
         if (this._readFourCharacters(array, index) === 'OggS') {
@@ -426,7 +436,7 @@ WebAudio.prototype._readOgg = function(array) {
     }
 };
 
-Tilemap.prototype.initialize = function() {
+Tilemap.prototype.initialize = function () {
     PIXI.Container.call(this);
 
     this._margin = 20;
@@ -736,7 +746,7 @@ ShaderTilemap.prototype._drawTableEdge = function (layer, tileId, dx, dy) {
     }
 };
 
-ShaderTilemap.prototype._drawShadow = function(layer, shadowBits, dx, dy) {
+ShaderTilemap.prototype._drawShadow = function (layer, shadowBits, dx, dy) {
     if (shadowBits & 0x0f) {
         var w1 = this._tileWidthHalf;
         var h1 = this._tileHeightHalf;
@@ -750,7 +760,7 @@ ShaderTilemap.prototype._drawShadow = function(layer, shadowBits, dx, dy) {
     }
 };
 
-TilingSprite.prototype._refresh = function() {
+TilingSprite.prototype._refresh = function () {
     var frame = this._frame.clone();
     if (frame.width === 0 && this._bitmap) {
         frame.width = this._bitmap.width;
@@ -761,7 +771,7 @@ TilingSprite.prototype._refresh = function() {
     this.tilingTexture = null;
 };
 
-Game_CharacterBase.prototype.distancePerFrame = function() {
+Game_CharacterBase.prototype.distancePerFrame = function () {
     switch (this.realMoveSpeed()) {
         case 1:
             return 0.0078125;
@@ -841,35 +851,35 @@ Decrypter.decryptArrayBuffer = function (arrayBuffer) {
     return arrayBuffer;
 };
 
-Game_Followers.prototype.initialize = function() {
+Game_Followers.prototype.initialize = function () {
     this._visible = $dataSystem.optFollowers;
     this._gathering = false;
     this._data = [];
-    if (!FirehawkADK.ParamDeck.DontInitializeFollowers){
+    if (!FirehawkADK.ParamDeck.DontInitializeFollowers) {
         for (var i = 1; i < $gameParty.maxBattleMembers(); i++) {
             this._data.push(new Game_Follower(i));
         }
     }
 };
 
-SceneManager.snapForBackground = function() {
+SceneManager.snapForBackground = function () {
     this._backgroundBitmap = this.snap();
     if (!FirehawkADK.ParamDeck.DontBlurMenuBackground) this._backgroundBitmap.blur();
 };
 
-Graphics._onTouchEnd = function(event) {
-if (!FirehawkADK.ParamDeck.RemoveVideoOnTouchEnd){
-    if (!this._videoUnlocked) {
-        this._video.play();
-        this._videoUnlocked = true;
+Graphics._onTouchEnd = function (event) {
+    if (!FirehawkADK.ParamDeck.RemoveVideoOnTouchEnd) {
+        if (!this._videoUnlocked) {
+            this._video.play();
+            this._videoUnlocked = true;
+        }
+        if (this._isVideoVisible() && this._video.paused) {
+            this._video.play();
+        }
     }
-    if (this._isVideoVisible() && this._video.paused) {
-        this._video.play();
-    }
-}
 };
 
-StorageManager.localFileDirectoryPath = function() {
+StorageManager.localFileDirectoryPath = function () {
     var path = require('path');
 
     var base = path.dirname(process.mainModule.filename);
@@ -880,7 +890,7 @@ StorageManager.localFileDirectoryPath = function() {
     }
 };
 
-StorageManager.canMakeWwwSaveDirectory = function() {
+StorageManager.canMakeWwwSaveDirectory = function () {
     if (this._canMakeWwwSaveDirectory === undefined) {
         var fs = require('fs');
         var path = require('path');
@@ -897,7 +907,7 @@ StorageManager.canMakeWwwSaveDirectory = function() {
     return this._canMakeWwwSaveDirectory;
 };
 
-SceneManager.onError = function(e) {
+SceneManager.onError = function (e) {
     console.error(e.message);
     if (e.filename || e.lineno) {
         console.error(e.filename, e.lineno);
@@ -910,7 +920,7 @@ SceneManager.onError = function(e) {
     }
 };
 
-SceneManager.updateMain = function() {
+SceneManager.updateMain = function () {
     if (Utils.isMobileSafari()) {
         this.changeScene();
         this.updateScene();
@@ -932,12 +942,12 @@ SceneManager.updateMain = function() {
     this.requestUpdate();
 };
 
-BattleManager.inputtingAction = function() {
+BattleManager.inputtingAction = function () {
     var actor = this.actor();
     return actor ? actor.inputtingAction() : null;
 };
 
-BattleManager.selectNextCommand = function() {
+BattleManager.selectNextCommand = function () {
     do {
         var actor = this.actor();
         if (!actor || !actor.selectNextCommand()) {
@@ -950,7 +960,7 @@ BattleManager.selectNextCommand = function() {
     } while (!this.actor().canInput());
 };
 
-BattleManager.selectPreviousCommand = function() {
+BattleManager.selectPreviousCommand = function () {
     do {
         var actor = this.actor();
         if (!actor || !actor.selectPreviousCommand()) {
@@ -962,7 +972,7 @@ BattleManager.selectPreviousCommand = function() {
     } while (!this.actor().canInput());
 };
 
-Scene_Map.prototype.updateMainMultiply = function() {
+Scene_Map.prototype.updateMainMultiply = function () {
     this.updateMain();
     if (this.isFastForward()) {
         if (!this.isMapTouchOk()) {
@@ -972,26 +982,26 @@ Scene_Map.prototype.updateMainMultiply = function() {
     }
 };
 
-Scene_ItemBase.prototype.canUse = function() {
+Scene_ItemBase.prototype.canUse = function () {
     var user = this.user();
-    if(user){
+    if (user) {
         return user.canUse(this.item()) && this.isItemEffectsValid();
     }
     return false;
 };
 
-Window_Base.prototype.drawCharacter = function(characterName, characterIndex, x, y) {
+Window_Base.prototype.drawCharacter = function (characterName, characterIndex, x, y) {
     var bitmap = ImageManager.loadCharacter(characterName);
     var big = ImageManager.isBigCharacter(characterName);
     var pw = bitmap.width / (big ? 3 : 12);
     var ph = bitmap.height / (big ? 4 : 8);
-    var n = big ? 0: characterIndex;
+    var n = big ? 0 : characterIndex;
     var sx = (n % 4 * 3 + 1) * pw;
     var sy = (Math.floor(n / 4) * 4) * ph;
     this.contents.blt(bitmap, sx, sy, pw, ph, x - pw / 2, y - ph);
 };
 
-Window_Options.prototype.drawItem = function(index) {
+Window_Options.prototype.drawItem = function (index) {
     var rect = this.itemRectForText(index);
     var statusWidth = this.statusWidth();
     var titleWidth = rect.width - statusWidth;
@@ -1001,7 +1011,7 @@ Window_Options.prototype.drawItem = function(index) {
     this.drawText(this.statusText(index), rect.x + titleWidth, rect.y, statusWidth, 'right');
 };
 
-Spriteset_Base.prototype.createWebGLToneChanger = function() {
+Spriteset_Base.prototype.createWebGLToneChanger = function () {
     var margin = 48;
     var width = Graphics.width + margin * 2;
     var height = Graphics.height + margin * 2;
@@ -1011,7 +1021,7 @@ Spriteset_Base.prototype.createWebGLToneChanger = function() {
     this._baseSprite.filterArea = new Rectangle(-margin, -margin, width, height);
 };
 
-Spriteset_Base.prototype.updateWebGLToneChanger = function() {
+Spriteset_Base.prototype.updateWebGLToneChanger = function () {
     var tone = this._tone;
     this._toneFilter.reset();
     if (tone[0] || tone[1] || tone[2] || tone[3]) {
@@ -1023,91 +1033,93 @@ Spriteset_Base.prototype.updateWebGLToneChanger = function() {
     }
 };
 
-DataManager.setupNewGame = function() {
-    this.createGameObjects();
-    this.selectSavefileForNewGame();
-    $gameParty.setupStartingMembers();
-    $gamePlayer.reserveTransfer($dataSystem.startMapId,
-        $dataSystem.startX, $dataSystem.startY);
-    Graphics.frameCount = 0;
-    SceneManager.resetFrameCount();
-};
+if (FirehawkADK.ParamDeck.CalcAccuratePlaytimePatch) {
+    DataManager.setupNewGame = function () {
+        this.createGameObjects();
+        this.selectSavefileForNewGame();
+        $gameParty.setupStartingMembers();
+        $gamePlayer.reserveTransfer($dataSystem.startMapId,
+            $dataSystem.startX, $dataSystem.startY);
+        Graphics.frameCount = 0;
+        SceneManager.resetFrameCount();
+    };
 
-SceneManager._frameCount = 0;
+    SceneManager._frameCount = 0;
 
-SceneManager.frameCount = function() {
-    return this._frameCount;
-};
+    SceneManager.frameCount = function () {
+        return this._frameCount;
+    };
 
-SceneManager.setFrameCount = function(frameCount) {
-    this._frameCount = frameCount;
-};
+    SceneManager.setFrameCount = function (frameCount) {
+        this._frameCount = frameCount;
+    };
 
-SceneManager.resetFrameCount = function() {
-    this._frameCount = 0;
-};
+    SceneManager.resetFrameCount = function () {
+        this._frameCount = 0;
+    };
 
-SceneManager.updateScene = function() {
-    if (this._scene) {
-        if (!this._sceneStarted && this._scene.isReady()) {
-            this._scene.start();
-            this._sceneStarted = true;
-            this.onSceneStart();
+    SceneManager.updateScene = function () {
+        if (this._scene) {
+            if (!this._sceneStarted && this._scene.isReady()) {
+                this._scene.start();
+                this._sceneStarted = true;
+                this.onSceneStart();
+            }
+            if (this.isCurrentSceneStarted()) {
+                this.updateFrameCount();
+                this._scene.update();
+            }
         }
-        if (this.isCurrentSceneStarted()) {
-            this.updateFrameCount();
-            this._scene.update();
-        }
-    }
-};
+    };
 
-SceneManager.updateFrameCount = function() {
-    this._frameCount++;
-};
+    SceneManager.updateFrameCount = function () {
+        this._frameCount++;
+    };
 
-Game_System.prototype.initialize = function() {
-    this._saveEnabled = true;
-    this._menuEnabled = true;
-    this._encounterEnabled = true;
-    this._formationEnabled = true;
-    this._battleCount = 0;
-    this._winCount = 0;
-    this._escapeCount = 0;
-    this._saveCount = 0;
-    this._versionId = 0;
-    this._framesOnSave = 0;
-    this._sceneFramesOnSave = 0;
-    this._bgmOnSave = null;
-    this._bgsOnSave = null;
-    this._windowTone = null;
-    this._battleBgm = null;
-    this._victoryMe = null;
-    this._defeatMe = null;
-    this._savedBgm = null;
-    this._walkingBgm = null;
-};
+    Game_System.prototype.initialize = function () {
+        this._saveEnabled = true;
+        this._menuEnabled = true;
+        this._encounterEnabled = true;
+        this._formationEnabled = true;
+        this._battleCount = 0;
+        this._winCount = 0;
+        this._escapeCount = 0;
+        this._saveCount = 0;
+        this._versionId = 0;
+        this._framesOnSave = 0;
+        this._sceneFramesOnSave = 0;
+        this._bgmOnSave = null;
+        this._bgsOnSave = null;
+        this._windowTone = null;
+        this._battleBgm = null;
+        this._victoryMe = null;
+        this._defeatMe = null;
+        this._savedBgm = null;
+        this._walkingBgm = null;
+    };
 
-Game_System.prototype.onBeforeSave = function() {
-    this._saveCount++;
-    this._versionId = $dataSystem.versionId;
-    this._framesOnSave = Graphics.frameCount;
-    this._sceneFramesOnSave = SceneManager.frameCount();
-    this._bgmOnSave = AudioManager.saveBgm();
-    this._bgsOnSave = AudioManager.saveBgs();
-};
+    Game_System.prototype.onBeforeSave = function () {
+        this._saveCount++;
+        this._versionId = $dataSystem.versionId;
+        this._framesOnSave = Graphics.frameCount;
+        this._sceneFramesOnSave = SceneManager.frameCount();
+        this._bgmOnSave = AudioManager.saveBgm();
+        this._bgsOnSave = AudioManager.saveBgs();
+    };
 
-Game_System.prototype.onAfterLoad = function() {
-    Graphics.frameCount = this._framesOnSave;
-    SceneManager.setFrameCount(this._sceneFramesOnSave || this._framesOnSave);
-    AudioManager.playBgm(this._bgmOnSave);
-    AudioManager.playBgs(this._bgsOnSave);
-};
+    Game_System.prototype.onAfterLoad = function () {
+        Graphics.frameCount = this._framesOnSave;
+        SceneManager.setFrameCount(this._sceneFramesOnSave || this._framesOnSave);
+        AudioManager.playBgm(this._bgmOnSave);
+        AudioManager.playBgs(this._bgsOnSave);
+    };
 
-Game_System.prototype.playtime = function() {
-    return Math.floor(SceneManager.frameCount() / 60);
-};
+    Game_System.prototype.playtime = function () {
+        return Math.floor(SceneManager.frameCount() / 60);
+    };
 
-Scene_Base.prototype.update = function() {
-    this.updateFade();
-    this.updateChildren();
-};
+    Scene_Base.prototype.update = function () {
+        this.updateFade();
+        this.updateChildren();
+    };
+}
