@@ -186,7 +186,7 @@ Bitmap.prototype.drawText = function (text, x, y, maxWidth, lineHeight, align) {
             return;
         }
         var tx = x;
-        var ty = y + lineHeight - Math.round(lineHeight - this.fontSize * 0.7) / 2;
+        var ty = y + lineHeight - Math.round((lineHeight - this.fontSize * 0.7) / 2);
         var context = this._context;
         var alpha = context.globalAlpha;
         maxWidth = maxWidth || 0xffffffff;
@@ -342,7 +342,7 @@ Sprite.prototype._executeTint = function (x, y, w, h) {
     context.drawImage(this._bitmap.canvas, x, y, w, h, 0, 0, w, h);
 
     if (tone[0] || tone[1] || tone[2] || tone[3]) {
-        if (Graphics.canUseDifferenceBlend()) {
+        if (Graphics.canUseSaturationBlend()) {
             var gray = Math.max(0, tone[3]);
             context.globalCompositeOperation = 'saturation';
             context.fillStyle = 'rgba(255,255,255,' + gray / 255 + ')';
@@ -982,13 +982,13 @@ Scene_Map.prototype.updateMainMultiply = function () {
     }
 };
 
-Scene_ItemBase.prototype.action = function(){
+Scene_ItemBase.prototype.action = function () {
     var action = new Game_Action(this.user());
     action.setItemObject(this.item());
     return action;
 };
 
-Scene_ItemBase.prototype.determineItem = function() {
+Scene_ItemBase.prototype.determineItem = function () {
     var action = this.action();
     if (action.isForFriend()) {
         this.showSubWindow(this._actorWindow);
@@ -999,7 +999,7 @@ Scene_ItemBase.prototype.determineItem = function() {
     }
 };
 
-Scene_ItemBase.prototype.itemTargetActors =function(){
+Scene_ItemBase.prototype.itemTargetActors = function () {
     var action = this.action();
     if (!action.isForFriend()) {
         return [];
@@ -1010,20 +1010,20 @@ Scene_ItemBase.prototype.itemTargetActors =function(){
     }
 };
 
-Scene_ItemBase.prototype.isItemEffectsValid = function() {
+Scene_ItemBase.prototype.isItemEffectsValid = function () {
     var action = this.action();
-    return this.itemTargetActors().some(function(target) {
+    return this.itemTargetActors().some(function (target) {
         return action.testApply(target);
     }, this);
 };
 
-Scene_ItemBase.prototype.applyItem =function(){
+Scene_ItemBase.prototype.applyItem = function () {
     var action = this.action();
     var targets = this.itemTargetActors();
-    targets.forEach(function(battler) {
+    targets.forEach(function (battler) {
         var repeats = action.numRepeats();
         for (var i = 0; i < repeats; i++) {
-            action.apply(battler);                    
+            action.apply(battler);
         }
     });
     action.applyGlobal();
@@ -1078,6 +1078,262 @@ Spriteset_Base.prototype.updateWebGLToneChanger = function () {
     } else {
         this._toneFilter.enabled = false;
     }
+};
+
+Graphics.printLoadingError = function (url) {
+    if (this._errorPrinter && !this._errorShowed) {
+        this._updateErrorPrinter();
+        this._errorPrinter.innerHTML = this._makeErrorHtml('Loading Error', 'Failed to load: ' + url);
+        this._errorPrinter.style.userSelect = 'text';
+        this._errorPrinter.style.webkitUserSelect = 'text';
+        this._errorPrinter.style.msUserSelect = 'text';
+        this._errorPrinter.style.mozUserSelect = 'text';
+        this._errorPrinter.oncontextmenu = null;    // enable context menu
+        var button = document.createElement('button');
+        button.innerHTML = 'Retry';
+        button.style.fontSize = '24px';
+        button.style.color = '#ffffff';
+        button.style.backgroundColor = '#000000';
+        button.addEventListener('touchstart', function (event) {
+            event.stopPropagation();
+        });
+        button.addEventListener('click', function (event) {
+            ResourceHandler.retry();
+        });
+        this._errorPrinter.appendChild(button);
+        this._loadingCount = -Infinity;
+    }
+};
+
+Graphics.eraseLoadingError = function () {
+    if (this._errorPrinter && !this._errorShowed) {
+        this._errorPrinter.innerHTML = '';
+        this._errorPrinter.style.userSelect = 'none';
+        this._errorPrinter.style.webkitUserSelect = 'none';
+        this._errorPrinter.style.msUserSelect = 'none';
+        this._errorPrinter.style.mozUserSelect = 'none';
+        this._errorPrinter.oncontextmenu = function () { return false; };
+        this.startLoading();
+    }
+};
+
+// The following code is partly borrowed from triacontane.
+/**
+ * Displays the error text to the screen.
+ *
+ * @static
+ * @method printError
+ * @param {String} name The name of the error
+ * @param {String} message The message of the error
+ */
+Graphics.printError = function (name, message) {
+    this._errorShowed = true;
+    this._hideProgress();
+    this.hideFps();
+    if (this._errorPrinter) {
+        this._updateErrorPrinter();
+        this._errorPrinter.innerHTML = this._makeErrorHtml(name, message);
+        this._errorPrinter.style.userSelect = 'text';
+        this._errorPrinter.style.webkitUserSelect = 'text';
+        this._errorPrinter.style.msUserSelect = 'text';
+        this._errorPrinter.style.mozUserSelect = 'text';
+        this._errorPrinter.oncontextmenu = null;    // enable context menu
+        if (this._errorMessage) {
+            this._makeErrorMessage();
+        }
+    }
+    this._applyCanvasFilter();
+    this._clearUpperCanvas();
+};
+
+/**
+ * Shows the detail of error.
+ *
+ * @static
+ * @method printErrorDetail
+ */
+Graphics.printErrorDetail = function (error) {
+    if (this._errorPrinter && this._showErrorDetail) {
+        var eventInfo = this._formatEventInfo(error);
+        var eventCommandInfo = this._formatEventCommandInfo(error);
+        var info = eventCommandInfo ? eventInfo + ", " + eventCommandInfo : eventInfo;
+        var stack = this._formatStackTrace(error);
+        this._makeErrorDetail(info, stack);
+    }
+};
+
+/**
+ * Sets the error message.
+ *
+ * @static
+ * @method setErrorMessage
+ */
+Graphics.setErrorMessage = function (message) {
+    this._errorMessage = message;
+};
+
+/**
+ * Sets whether shows the detail of error.
+ *
+ * @static
+ * @method setShowErrorDetail
+ */
+Graphics.setShowErrorDetail = function (showErrorDetail) {
+    this._showErrorDetail = showErrorDetail;
+};
+
+Graphics._makeErrorHtml = function (name, message) {
+    return ('<font color="yellow"><b>' + name + '</b></font><br>' +
+        '<font color="white">' + decodeURIComponent(message) + '</font><br>');
+};
+
+Graphics._updateErrorPrinter = function () {
+    this._errorPrinter.width = this._width * 0.9;
+    if (this._errorShowed && this._showErrorDetail) {
+        this._errorPrinter.height = this._height * 0.9;
+    } else if (this._errorShowed && this._errorMessage) {
+        this._errorPrinter.height = 100;
+    } else {
+        this._errorPrinter.height = 40;
+    }
+    this._errorPrinter.style.textAlign = 'center';
+    this._errorPrinter.style.textShadow = '1px 1px 3px #000';
+    this._errorPrinter.style.fontSize = '20px';
+    this._errorPrinter.style.zIndex = 99;
+    this._centerElement(this._errorPrinter);
+};
+
+/**
+ * @static
+ * @method _makeErrorMessage
+ * @private
+ */
+Graphics._makeErrorMessage = function () {
+    var mainMessage = document.createElement('div');
+    var style = mainMessage.style;
+    style.color = 'white';
+    style.textAlign = 'left';
+    style.fontSize = '18px';
+    mainMessage.innerHTML = '<hr>' + this._errorMessage;
+    this._errorPrinter.appendChild(mainMessage);
+};
+
+/**
+ * @static
+ * @method _makeErrorDetail
+ * @private
+ */
+Graphics._makeErrorDetail = function (info, stack) {
+    var detail = document.createElement('div');
+    var style = detail.style;
+    style.color = 'white';
+    style.textAlign = 'left';
+    style.fontSize = '18px';
+    detail.innerHTML = '<br><hr>' + info + '<br><br>' + stack;
+    this._errorPrinter.appendChild(detail);
+};
+
+/**
+ * @static
+ * @method _formatEventInfo
+ * @private
+ */
+Graphics._formatEventInfo = function (error) {
+    switch (String(error.eventType)) {
+        case "map_event":
+            return "MapID: %1, MapEventID: %2, page: %3, line: %4".format(error.mapId, error.mapEventId, error.page, error.line);
+        case "common_event":
+            return "CommonEventID: %1, line: %2".format(error.commonEventId, error.line);
+        case "battle_event":
+            return "TroopID: %1, page: %2, line: %3".format(error.troopId, error.page, error.line);
+        case "test_event":
+            return "TestEvent, line: %1".format(error.line);
+        default:
+            return "No information";
+    }
+};
+
+/**
+ * @static
+ * @method _formatEventCommandInfo
+ * @private
+ */
+Graphics._formatEventCommandInfo = function (error) {
+    switch (String(error.eventCommand)) {
+        case "plugin_command":
+            return "◆Plugin Command: " + error.content;
+        case "script":
+            return "◆Script: " + error.content;
+        case "control_variables":
+            return "◆Control Variables: Script: " + error.content;
+        case "conditional_branch_script":
+            return "◆If: Script: " + error.content;
+        case "set_route_script":
+            return "◆Set Movement Route: ◇Script: " + error.content;
+        case "auto_route_script":
+            return "Autonomous Movement Custom Route: ◇Script: " + error.content;
+        case "other":
+        default:
+            return "";
+    }
+};
+
+/**
+ * @static
+ * @method _formatStackTrace
+ * @private
+ */
+Graphics._formatStackTrace = function (error) {
+    return decodeURIComponent((error.stack || '')
+        .replace(/file:.*js\//g, '')
+        .replace(/http:.*js\//g, '')
+        .replace(/https:.*js\//g, '')
+        .replace(/chrome-extension:.*js\//g, '')
+        .replace(/\n/g, '<br>'));
+};
+
+JsonEx._decode = function (value, circular, registry) {
+    var type = Object.prototype.toString.call(value);
+    if (type === '[object Object]' || type === '[object Array]') {
+        registry[value['@c']] = value;
+
+        if (value['@'] === null) {
+            value = this._resetPrototype(value, null);
+        } else if (value['@']) {
+            var constructor = window[value['@']];
+            if (constructor) {
+                value = this._resetPrototype(value, constructor.prototype);
+            }
+        }
+        for (var key in value) {
+            if (!value.hasOwnProperty || value.hasOwnProperty(key)) {
+                if (value[key] && value[key]['@a']) {
+                    //object is array wrapper
+                    var body = value[key]['@a'];
+                    body['@c'] = value[key]['@c'];
+                    value[key] = body;
+                }
+                if (value[key] && value[key]['@r']) {
+                    //object is reference
+                    circular.push([key, value, value[key]['@r']])
+                }
+                value[key] = this._decode(value[key], circular, registry);
+            }
+        }
+    }
+    return value;
+};
+
+JsonEx._getConstructorName = function (value) {
+    if (!value.constructor) {
+        return null;
+    }
+    var name = value.constructor.name;
+    if (name === undefined) {
+        var func = /^\s*function\s*([A-Za-z0-9_$]*)/;
+        name = func.exec(value.constructor)[1];
+    }
+    return name;
 };
 
 if (FirehawkADK.ParamDeck.CalcAccuratePlaytimePatch) {
