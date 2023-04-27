@@ -1292,6 +1292,45 @@ Graphics._formatStackTrace = function (error) {
         .replace(/\n/g, '<br>'));
 };
 
+JsonEx._encode = function (value, circular, depth) {
+    depth = depth || 0;
+    if (++depth >= this.maxDepth) {
+        throw new Error('Object too deep');
+    }
+    var type = Object.prototype.toString.call(value);
+    if (type === '[object Object]' || type === '[object Array]') {
+        value['@c'] = JsonEx._generateId();
+        var constructorName = this._getConstructorName(value);
+        if (constructorName !== 'Object' && constructorName !== 'Array') {
+            value['@'] = constructorName;
+        }
+        for (var key in value) {
+            if ((!value.hasOwnProperty || value.hasOwnProperty(key)) && !key.match(/^@./)) {
+                if (value[key] && typeof value[key] === 'object') {
+                    if (value[key]['@c']) {
+                        circular.push([key, value, value[key]]);
+                        value[key] = { '@r': value[key]['@c'] };
+                    } else {
+                        value[key] = this._encode(value[key], circular, depth + 1);
+                        if (value[key] instanceof Array) {
+                            //wrap array
+                            circular.push([key, value, value[key]]);
+                            value[key] = {
+                                '@c': value[key]['@c'],
+                                '@a': value[key]
+                            };
+                        }
+                    }
+                } else {
+                    value[key] = this._encode(value[key], circular, depth + 1);
+                }
+            }
+        }
+    }
+    depth--;
+    return value;
+};
+
 JsonEx._decode = function (value, circular, registry) {
     var type = Object.prototype.toString.call(value);
     if (type === '[object Object]' || type === '[object Array]') {
@@ -1334,6 +1373,787 @@ JsonEx._getConstructorName = function (value) {
         name = func.exec(value.constructor)[1];
     }
     return name;
+};
+
+ImageManager.loadNormalBitmap = function(path, hue) {
+    var key = this._generateCacheKey(path, hue);
+    var bitmap = this._imageCache.get(key);
+    if (!bitmap) {
+        bitmap = Bitmap.load(path);
+        this._callCreationHook(bitmap);
+
+        bitmap.addLoadListener(function() {
+            bitmap.rotateHue(hue);
+        });
+        this._imageCache.add(key, bitmap);
+    }else if(!bitmap.isReady()){
+        bitmap.decode();
+    }
+    return bitmap;
+};
+
+ImageManager.requestNormalBitmap = function(path, hue){
+    var key = this._generateCacheKey(path, hue);
+    var bitmap = this._imageCache.get(key);
+    if(!bitmap){
+        bitmap = Bitmap.request(path);
+        this._callCreationHook(bitmap);
+
+        bitmap.addLoadListener(function(){
+            bitmap.rotateHue(hue);
+        });
+        this._imageCache.add(key, bitmap);
+        this._requestQueue.enqueue(key, bitmap);
+    }else{
+        this._requestQueue.raisePriority(key);
+    }
+    return bitmap;
+};
+
+ImageManager.setCreationHook = function(hook){
+    this._creationHook = hook;
+};
+
+ImageManager._callCreationHook = function(bitmap){
+    if(this._creationHook) this._creationHook(bitmap);
+};
+
+AudioManager.createBuffer = function(folder, name) {
+    var ext = this.audioFileExt();
+    var url = this._path + folder + '/' + encodeURIComponent(name) + ext;
+    if (this.shouldUseHtml5Audio() && folder === 'bgm') {
+        if(this._blobUrl) Html5Audio.setup(this._blobUrl);
+        else Html5Audio.setup(url);
+        return Html5Audio;
+    } else {
+        var audio = new WebAudio(url);
+        this._callCreationHook(audio);
+        return audio;
+    }
+};
+
+AudioManager.setCreationHook = function(hook){
+    this._creationHook = hook;
+};
+
+AudioManager._callCreationHook = function(audio){
+    if(this._creationHook) this._creationHook(audio);
+};
+
+SceneManager.catchException = function(e) {
+    if (e instanceof Error) {
+        Graphics.printError(e.name, e.message);
+        Graphics.printErrorDetail(e);
+        console.error(e.stack);
+    } else {
+        Graphics.printError('UnknownError', e);
+    }
+    AudioManager.stopAll();
+    this.stop();
+};
+
+Game_Temp.prototype.reservedCommonEventId = function() {
+    return this._commonEventId;
+};
+
+Game_Troop.prototype.setupBattleEvent = function() {
+    if (!this._interpreter.isRunning()) {
+        if (this._interpreter.setupReservedCommonEvent()) {
+            return;
+        }
+        var pages = this.troop().pages;
+        for (var i = 0; i < pages.length; i++) {
+            var page = pages[i];
+            if (this.meetsConditions(page) && !this._eventFlags[i]) {
+                this._interpreter.setup(page.list);
+                this._interpreter.setEventInfo({ eventType: 'battle_event', troopId: this._troopId, page: i + 1 });
+                if (page.span <= 1) {
+                    this._eventFlags[i] = true;
+                }
+                break;
+            }
+        }
+    }
+};
+
+Game_Map.prototype.setupTestEvent = function() {
+    if ($testEvent) {
+        this._interpreter.setup($testEvent, 0);
+        this._interpreter.setEventInfo({ eventType: 'test_event' });
+        $testEvent = null;
+        return true;
+    }
+    return false;
+};
+
+Game_Map.prototype.setupStartingMapEvent = function() {
+    var events = this.events();
+    for (var i = 0; i < events.length; i++) {
+        var event = events[i];
+        if (event.isStarting()) {
+            event.clearStartingFlag();
+            this._interpreter.setup(event.list(), event.eventId());
+            this._interpreter.setEventInfo(event.getEventInfo());
+            return true;
+        }
+    }
+    return false;
+};
+
+Game_Map.prototype.setupAutorunCommonEvent = function() {
+    for (var i = 0; i < $dataCommonEvents.length; i++) {
+        var event = $dataCommonEvents[i];
+        if (event && event.trigger === 1 && $gameSwitches.value(event.switchId)) {
+            this._interpreter.setup(event.list);
+            this._interpreter.setEventInfo({ eventType: 'common_event', commonEventId: i });
+            return true;
+        }
+    }
+    return false;
+};
+
+Game_CommonEvent.prototype.update = function() {
+    if (this._interpreter) {
+        if (!this._interpreter.isRunning()) {
+            this._interpreter.setup(this.list());
+            this._interpreter.setEventInfo({ eventType: 'common_event', commonEventId: this._commonEventId });
+        }
+        this._interpreter.update();
+    }
+};
+
+Game_Character.prototype.initMembers = function() {
+    Game_CharacterBase.prototype.initMembers.call(this);
+    this._moveRouteForcing = false;
+    this._moveRoute = null;
+    this._moveRouteIndex = 0;
+    this._originalMoveRoute = null;
+    this._originalMoveRouteIndex = 0;
+    this._waitCount = 0;
+    this._callerEventInfo = null;
+};
+
+Game_Character.prototype.restoreMoveRoute = function() {
+    this._moveRoute          = this._originalMoveRoute;
+    this._moveRouteIndex     = this._originalMoveRouteIndex;
+    this._originalMoveRoute  = null;
+    this._callerEventInfo    = null;
+};
+
+Game_Character.prototype.setCallerEventInfo = function(callerEventInfo) {
+    this._callerEventInfo = callerEventInfo;
+};
+
+Game_Character.prototype.processMoveCommand = function(command) {
+    var gc = Game_Character;
+    var params = command.parameters;
+    switch (command.code) {
+    case gc.ROUTE_END:
+        this.processRouteEnd();
+        break;
+    case gc.ROUTE_MOVE_DOWN:
+        this.moveStraight(2);
+        break;
+    case gc.ROUTE_MOVE_LEFT:
+        this.moveStraight(4);
+        break;
+    case gc.ROUTE_MOVE_RIGHT:
+        this.moveStraight(6);
+        break;
+    case gc.ROUTE_MOVE_UP:
+        this.moveStraight(8);
+        break;
+    case gc.ROUTE_MOVE_LOWER_L:
+        this.moveDiagonally(4, 2);
+        break;
+    case gc.ROUTE_MOVE_LOWER_R:
+        this.moveDiagonally(6, 2);
+        break;
+    case gc.ROUTE_MOVE_UPPER_L:
+        this.moveDiagonally(4, 8);
+        break;
+    case gc.ROUTE_MOVE_UPPER_R:
+        this.moveDiagonally(6, 8);
+        break;
+    case gc.ROUTE_MOVE_RANDOM:
+        this.moveRandom();
+        break;
+    case gc.ROUTE_MOVE_TOWARD:
+        this.moveTowardPlayer();
+        break;
+    case gc.ROUTE_MOVE_AWAY:
+        this.moveAwayFromPlayer();
+        break;
+    case gc.ROUTE_MOVE_FORWARD:
+        this.moveForward();
+        break;
+    case gc.ROUTE_MOVE_BACKWARD:
+        this.moveBackward();
+        break;
+    case gc.ROUTE_JUMP:
+        this.jump(params[0], params[1]);
+        break;
+    case gc.ROUTE_WAIT:
+        this._waitCount = params[0] - 1;
+        break;
+    case gc.ROUTE_TURN_DOWN:
+        this.setDirection(2);
+        break;
+    case gc.ROUTE_TURN_LEFT:
+        this.setDirection(4);
+        break;
+    case gc.ROUTE_TURN_RIGHT:
+        this.setDirection(6);
+        break;
+    case gc.ROUTE_TURN_UP:
+        this.setDirection(8);
+        break;
+    case gc.ROUTE_TURN_90D_R:
+        this.turnRight90();
+        break;
+    case gc.ROUTE_TURN_90D_L:
+        this.turnLeft90();
+        break;
+    case gc.ROUTE_TURN_180D:
+        this.turn180();
+        break;
+    case gc.ROUTE_TURN_90D_R_L:
+        this.turnRightOrLeft90();
+        break;
+    case gc.ROUTE_TURN_RANDOM:
+        this.turnRandom();
+        break;
+    case gc.ROUTE_TURN_TOWARD:
+        this.turnTowardPlayer();
+        break;
+    case gc.ROUTE_TURN_AWAY:
+        this.turnAwayFromPlayer();
+        break;
+    case gc.ROUTE_SWITCH_ON:
+        $gameSwitches.setValue(params[0], true);
+        break;
+    case gc.ROUTE_SWITCH_OFF:
+        $gameSwitches.setValue(params[0], false);
+        break;
+    case gc.ROUTE_CHANGE_SPEED:
+        this.setMoveSpeed(params[0]);
+        break;
+    case gc.ROUTE_CHANGE_FREQ:
+        this.setMoveFrequency(params[0]);
+        break;
+    case gc.ROUTE_WALK_ANIME_ON:
+        this.setWalkAnime(true);
+        break;
+    case gc.ROUTE_WALK_ANIME_OFF:
+        this.setWalkAnime(false);
+        break;
+    case gc.ROUTE_STEP_ANIME_ON:
+        this.setStepAnime(true);
+        break;
+    case gc.ROUTE_STEP_ANIME_OFF:
+        this.setStepAnime(false);
+        break;
+    case gc.ROUTE_DIR_FIX_ON:
+        this.setDirectionFix(true);
+        break;
+    case gc.ROUTE_DIR_FIX_OFF:
+        this.setDirectionFix(false);
+        break;
+    case gc.ROUTE_THROUGH_ON:
+        this.setThrough(true);
+        break;
+    case gc.ROUTE_THROUGH_OFF:
+        this.setThrough(false);
+        break;
+    case gc.ROUTE_TRANSPARENT_ON:
+        this.setTransparent(true);
+        break;
+    case gc.ROUTE_TRANSPARENT_OFF:
+        this.setTransparent(false);
+        break;
+    case gc.ROUTE_CHANGE_IMAGE:
+        this.setImage(params[0], params[1]);
+        break;
+    case gc.ROUTE_CHANGE_OPACITY:
+        this.setOpacity(params[0]);
+        break;
+    case gc.ROUTE_CHANGE_BLEND_MODE:
+        this.setBlendMode(params[0]);
+        break;
+    case gc.ROUTE_PLAY_SE:
+        AudioManager.playSe(params[0]);
+        break;
+    case gc.ROUTE_SCRIPT:
+        try {
+            eval(params[0]);
+        } catch (error) {
+            if (this._callerEventInfo) {
+                for (var key in this._callerEventInfo) {
+                    error[key] = this._callerEventInfo[key];
+                }
+                error.line += this._moveRouteIndex + 1;
+                error.eventCommand = "set_route_script";
+                error.content = command.parameters[0];
+            } else {
+                error.eventType = "map_event";
+                error.mapId = this._mapId;
+                error.mapEventId = this._eventId;
+                error.page = this._pageIndex + 1;
+                error.line = this._moveRouteIndex + 1;
+                error.eventCommand = "auto_route_script";
+                error.content = command.parameters[0];
+            }
+            throw error;
+        }
+        break;
+    }
+};
+
+Game_Event.prototype.updateParallel = function() {
+    if (this._interpreter) {
+        if (!this._interpreter.isRunning()) {
+            this._interpreter.setup(this.list(), this._eventId);
+            this._interpreter.setEventInfo(this.getEventInfo());
+        }
+        this._interpreter.update();
+    }
+};
+
+Game_Event.prototype.getEventInfo = function() {
+    return { eventType: "map_event", mapId: this._mapId, mapEventId: this._eventId, page: this._pageIndex + 1 };
+};
+
+Game_Interpreter.prototype.clear = function() {
+    this._mapId = 0;
+    this._eventId = 0;
+    this._list = null;
+    this._index = 0;
+    this._waitCount = 0;
+    this._waitMode = '';
+    this._comments = '';
+    this._eventInfo = null;
+    this._character = null;
+    this._childInterpreter = null;
+};
+
+Game_Interpreter.prototype.setEventInfo = function(eventInfo) {
+    this._eventInfo = eventInfo;
+};
+
+Game_Interpreter.prototype.setupReservedCommonEvent = function() {
+    if ($gameTemp.isCommonEventReserved()) {
+        this.setup($gameTemp.reservedCommonEvent().list);
+        this.setEventInfo({ eventType: 'common_event', commonEventId: $gameTemp.reservedCommonEventId() });
+        $gameTemp.clearCommonEvent();
+        return true;
+    } else {
+        return false;
+    }
+};
+
+Game_Interpreter.prototype.executeCommand = function() {
+    var command = this.currentCommand();
+    if (command) {
+        this._params = command.parameters;
+        this._indent = command.indent;
+        var methodName = 'command' + command.code;
+        if (typeof this[methodName] === 'function') {
+            try {
+                if (!this[methodName]()) {
+                    return false;
+                }
+            } catch (error) {
+                for (var key in this._eventInfo) {
+                    error[key] = this._eventInfo[key];
+                }
+                error.eventCommand = error.eventCommand || "other";
+                error.line = error.line || this._index + 1;
+                throw error;
+            }
+        }
+        this._index++;
+    } else {
+        this.terminate();
+    }
+    return true;
+};
+
+Game_Interpreter.prototype.command111 = function() {
+    var result = false;
+    switch (this._params[0]) {
+        case 0:  // Switch
+            result = ($gameSwitches.value(this._params[1]) === (this._params[2] === 0));
+            break;
+        case 1:  // Variable
+            var value1 = $gameVariables.value(this._params[1]);
+            var value2;
+            if (this._params[2] === 0) {
+                value2 = this._params[3];
+            } else {
+                value2 = $gameVariables.value(this._params[3]);
+            }
+            switch (this._params[4]) {
+                case 0:  // Equal to
+                    result = (value1 === value2);
+                    break;
+                case 1:  // Greater than or Equal to
+                    result = (value1 >= value2);
+                    break;
+                case 2:  // Less than or Equal to
+                    result = (value1 <= value2);
+                    break;
+                case 3:  // Greater than
+                    result = (value1 > value2);
+                    break;
+                case 4:  // Less than
+                    result = (value1 < value2);
+                    break;
+                case 5:  // Not Equal to
+                    result = (value1 !== value2);
+                    break;
+            }
+            break;
+        case 2:  // Self Switch
+            if (this._eventId > 0) {
+                var key = [this._mapId, this._eventId, this._params[1]];
+                result = ($gameSelfSwitches.value(key) === (this._params[2] === 0));
+            }
+            break;
+        case 3:  // Timer
+            if ($gameTimer.isWorking()) {
+                if (this._params[2] === 0) {
+                    result = ($gameTimer.seconds() >= this._params[1]);
+                } else {
+                    result = ($gameTimer.seconds() <= this._params[1]);
+                }
+            }
+            break;
+        case 4:  // Actor
+            var actor = $gameActors.actor(this._params[1]);
+            if (actor) {
+                var n = this._params[3];
+                switch (this._params[2]) {
+                    case 0:  // In the Party
+                        result = $gameParty.members().contains(actor);
+                        break;
+                    case 1:  // Name
+                        result = (actor.name() === n);
+                        break;
+                    case 2:  // Class
+                        result = actor.isClass($dataClasses[n]);
+                        break;
+                    case 3:  // Skill
+                        result = actor.hasSkill(n);
+                        break;
+                    case 4:  // Weapon
+                        result = actor.hasWeapon($dataWeapons[n]);
+                        break;
+                    case 5:  // Armor
+                        result = actor.hasArmor($dataArmors[n]);
+                        break;
+                    case 6:  // State
+                        result = actor.isStateAffected(n);
+                        break;
+                }
+            }
+            break;
+        case 5:  // Enemy
+            var enemy = $gameTroop.members()[this._params[1]];
+            if (enemy) {
+                switch (this._params[2]) {
+                    case 0:  // Appeared
+                        result = enemy.isAlive();
+                        break;
+                    case 1:  // State
+                        result = enemy.isStateAffected(this._params[3]);
+                        break;
+                }
+            }
+            break;
+        case 6:  // Character
+            var character = this.character(this._params[1]);
+            if (character) {
+                result = (character.direction() === this._params[2]);
+            }
+            break;
+        case 7:  // Gold
+            switch (this._params[2]) {
+                case 0:  // Greater than or equal to
+                    result = ($gameParty.gold() >= this._params[1]);
+                    break;
+                case 1:  // Less than or equal to
+                    result = ($gameParty.gold() <= this._params[1]);
+                    break;
+                case 2:  // Less than
+                    result = ($gameParty.gold() < this._params[1]);
+                    break;
+            }
+            break;
+        case 8:  // Item
+            result = $gameParty.hasItem($dataItems[this._params[1]]);
+            break;
+        case 9:  // Weapon
+            result = $gameParty.hasItem($dataWeapons[this._params[1]], this._params[2]);
+            break;
+        case 10:  // Armor
+            result = $gameParty.hasItem($dataArmors[this._params[1]], this._params[2]);
+            break;
+        case 11:  // Button
+            result = Input.isPressed(this._params[1]);
+            break;
+        case 12:  // Script
+            try {
+                result = !!eval(this._params[1]);
+            } catch (error) {
+                error.eventCommand = "conditional_branch_script";
+                error.content = this._params[1];
+                throw error;
+            }
+            break;
+        case 13:  // Vehicle
+            result = ($gamePlayer.vehicle() === $gameMap.vehicle(this._params[1]));
+            break;
+    }
+    this._branch[this._indent] = result;
+    if (this._branch[this._indent] === false) {
+        this.skipBranch();
+    }
+    return true;
+};
+
+Game_Interpreter.prototype.setupChild = function(list, eventId) {
+    this._childInterpreter = new Game_Interpreter(this._depth + 1);
+    this._childInterpreter.setup(list, eventId);
+    this._childInterpreter.setEventInfo({ eventType: 'common_event', commonEventId: this._params[0] });
+};
+
+Game_Interpreter.prototype.command122 = function() {
+    var value = 0;
+    switch (this._params[3]) { // Operand
+        case 0: // Constant
+            value = this._params[4];
+            break;
+        case 1: // Variable
+            value = $gameVariables.value(this._params[4]);
+            break;
+        case 2: // Random
+            value = this._params[5] - this._params[4] + 1;
+            for (var i = this._params[0]; i <= this._params[1]; i++) {
+                this.operateVariable(i, this._params[2], this._params[4] + Math.randomInt(value));
+            }
+            return true;
+            break;
+        case 3: // Game Data
+            value = this.gameDataOperand(this._params[4], this._params[5], this._params[6]);
+            break;
+        case 4: // Script
+            try {
+                value = eval(this._params[4]);
+            } catch (error) {
+                error.eventCommand = "control_variables";
+                error.content = this._params[4];
+                throw error;
+            }
+            break;
+    }
+    for (var i = this._params[0]; i <= this._params[1]; i++) {
+        this.operateVariable(i, this._params[2], value);
+    }
+    return true;
+};
+
+Game_Interpreter.prototype.command205 = function() {
+    $gameMap.refreshIfNeeded();
+    this._character = this.character(this._params[0]);
+    if (this._character) {
+        this._character.forceMoveRoute(this._params[1]);
+        var eventInfo = JsonEx.makeDeepCopy(this._eventInfo);
+        eventInfo.line = this._index + 1;
+        this._character.setCallerEventInfo(eventInfo);
+        if (this._params[1].wait) {
+            this.setWaitMode('route');
+        }
+    }
+    return true;
+};
+
+Game_Interpreter.prototype.command355 = function() {
+    var startLine = this._index + 1;
+    var script = this.currentCommand().parameters[0] + '\n';
+    while (this.nextEventCode() === 655) {
+        this._index++;
+        script += this.currentCommand().parameters[0] + '\n';
+    }
+    var endLine = this._index + 1;
+    try {
+        eval(script);
+    } catch (error) {
+        error.line = startLine + "-" + endLine;
+        error.eventCommand = "script";
+        error.content = script;
+        throw error;
+    }
+    return true;
+};
+
+Game_Interpreter.prototype.command356 = function() {
+    var args = this._params[0].split(" ");
+    var command = args.shift();
+    try {
+        this.pluginCommand(command, args);
+    } catch (error) {
+        error.eventCommand = "plugin_command";
+        error.content = this._params[0];
+        throw error;
+    }
+    return true;
+};
+
+Game_Interpreter.requestImagesByPluginCommand = function(command,args){
+};
+
+Game_Interpreter.requestImagesForCommand = function(command){
+    var params = command.parameters;
+    switch(command.code){
+        // Show Text
+        case 101:
+            ImageManager.requestFace(params[0]);
+            break;
+
+        // Change Party Member
+        case 129:
+            var actor = $gameActors.actor(params[0]);
+            if (actor && params[1] === 0) {
+                var name = actor.characterName();
+                ImageManager.requestCharacter(name);
+            }
+            break;
+
+        // Set Movement Route
+        case 205:
+            if(params[1]){
+                params[1].list.forEach(function(command){
+                    var params = command.parameters;
+                    if(command.code === Game_Character.ROUTE_CHANGE_IMAGE){
+                        ImageManager.requestCharacter(params[0]);
+                    }
+                });
+            }
+            break;
+
+        // Show Animation, Show Battle Animation
+        case 212: case 337:
+            if(params[1]) {
+                var animation = $dataAnimations[params[1]];
+                var name1 = animation.animation1Name;
+                var name2 = animation.animation2Name;
+                var hue1 = animation.animation1Hue;
+                var hue2 = animation.animation2Hue;
+                ImageManager.requestAnimation(name1, hue1);
+                ImageManager.requestAnimation(name2, hue2);
+            }
+            break;
+
+        // Change Player Followers
+        case 216:
+            if (params[0] === 0) {
+                $gamePlayer.followers().forEach(function(follower) {
+                    var name = follower.characterName();
+                    ImageManager.requestCharacter(name);
+                });
+            }
+            break;
+
+        // Show Picture
+        case 231:
+            ImageManager.requestPicture(params[1]);
+            break;
+
+        // Change Tileset
+        case 282:
+            var tileset = $dataTilesets[params[0]];
+            tileset.tilesetNames.forEach(function(tilesetName){
+                ImageManager.requestTileset(tilesetName);
+            });
+            break;
+
+        // Change Battle Back
+        case 283:
+            if ($gameParty.inBattle()) {
+                ImageManager.requestBattleback1(params[0]);
+                ImageManager.requestBattleback2(params[1]);
+            }
+            break;
+
+        // Change Parallax
+        case 284:
+            if (!$gameParty.inBattle()) {
+                ImageManager.requestParallax(params[0]);
+            }
+            break;
+
+        // Change Actor Images
+        case 322:
+            ImageManager.requestCharacter(params[1]);
+            ImageManager.requestFace(params[3]);
+            ImageManager.requestSvActor(params[5]);
+            break;
+
+        // Change Vehicle Image
+        case 323:
+            var vehicle = $gameMap.vehicle(params[0]);
+            if(vehicle){
+                ImageManager.requestCharacter(params[1]);
+            }
+            break;
+
+        // Enemy Transform
+        case 336:
+            var enemy = $dataEnemies[params[1]];
+            var name = enemy.battlerName;
+            var hue = enemy.battlerHue;
+            if ($gameSystem.isSideView()) {
+                ImageManager.requestSvEnemy(name, hue);
+            } else {
+                ImageManager.requestEnemy(name, hue);
+            }
+            break;
+        // Plugin Command
+        case 356:
+            var args = params[0].split(" ");
+            var commandName = args.shift();
+            Game_Interpreter.requestImagesByPluginCommand(commandName,args);
+        break;
+
+    }
+};
+
+Game_Interpreter.requestImagesByChildEvent = function(command,commonList){
+    var params =command.parameters;
+    var commonEvent = $dataCommonEvents[params[0]];
+    if (commonEvent) {
+        if (!commonList) {
+            commonList = [];
+        }
+        if (!commonList.contains(params[0])) {
+            commonList.push(params[0]);
+            Game_Interpreter.requestImages(commonEvent.list, commonList);
+        }
+    }
+};
+
+Game_Interpreter.requestImages = function(list, commonList){
+    if(!list){return;}
+    var len = list.length;
+    for(var i=0; i<len; i+=1 ){
+        var command = list[i];
+        // Common Event
+        if(command.code ===117){
+            Game_Interpreter.requestImagesByChildEvent(command,commonList);
+        }else{
+            Game_Interpreter.requestImagesForCommand(command);            
+        }
+    }
 };
 
 if (FirehawkADK.ParamDeck.CalcAccuratePlaytimePatch) {
